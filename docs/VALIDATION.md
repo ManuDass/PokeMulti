@@ -28,7 +28,9 @@ LeafGreen US v1.1 was booted from the supplied ZIP into a new game, without
 reusing a FireRed savestate. Native checks cover visible wild encounters, camp
 placement/movement/packing, Route 22 loss and friend takeover through shared
 completion, private world checkpoints, cold reconnects, chat, trade invitations
-and host-loss return. FireRed US v1.0 passed the world-persistence regression.
+and host-loss return. The full LeafGreen wager battle passed opponent-name and
+dialogue checks, restored both teams and positions, and displayed the committed
+winner/loser money results. FireRed US v1.0 passed the world-persistence regression.
 
 The hook audit verifies 188 ROM addresses and 61 RAM references against four
 published symbol layouts. Forged LeafGreen headers still fail full-image hash
