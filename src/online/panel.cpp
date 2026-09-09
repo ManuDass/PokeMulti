@@ -173,9 +173,9 @@ struct Panel::Impl {
     }
 #endif
     Impl(Session& s,std::filesystem::path p,bool visible,bool host,std::string n):session(s),data(std::move(p)),name(std::move(n)),hostMode(!visible||host),autoHost(host){
-        SDL_strlcpy(address.data(),address.size(),"127.0.0.1");SDL_strlcpy(port.data(),port.size(),"38475");
-        SDL_strlcpy(key.data(),key.size(),randomId().substr(0,12).c_str());
-        if(session.status().connected){SDL_strlcpy(key.data(),key.size(),session.connectionKey().c_str());SDL_strlcpy(port.data(),port.size(),std::to_string(session.status().port).c_str());roomCapacity=session.status().capacity;}
+        SDL_strlcpy(address.data(),"127.0.0.1",address.size());SDL_strlcpy(port.data(),"38475",port.size());
+        SDL_strlcpy(key.data(),randomId().substr(0,12).c_str(),key.size());
+        if(session.status().connected){SDL_strlcpy(key.data(),session.connectionKey().c_str(),key.size());SDL_strlcpy(port.data(),std::to_string(session.status().port).c_str(),port.size());roomCapacity=session.status().capacity;}
         const auto file=data/"friends.cfg";
         if(std::filesystem::exists(file)){
             if(std::filesystem::file_size(file)>65536)throw std::runtime_error("Friends file is too large");
