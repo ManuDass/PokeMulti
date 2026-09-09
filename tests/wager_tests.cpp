@@ -26,8 +26,14 @@ int main(){try{
   check(fr::game::wagerResultText(result,1)=="The wager was cancelled. No money was taken.","Never claim to refund an unreserved stake");
  }
  const auto folder=std::filesystem::temp_directory_path()/("pokemulti-wager-"+randomId());std::filesystem::create_directories(folder);
+#ifdef _WIN32
  const auto heldFile=folder/"held.cfg";fr::replaceText(heldFile,"old");const auto handle=CreateFileW(heldFile.c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);check(handle!=INVALID_HANDLE_VALUE,"Open temporary test reader");
  auto release=std::async(std::launch::async,[&]{std::this_thread::sleep_for(std::chrono::milliseconds(60));CloseHandle(handle);});fr::replaceText(heldFile,"new");release.get();{std::ifstream in(heldFile);std::string text;in>>text;check(text=="new","Account commit tolerates a transient Windows read lock");}
+#else
+ const auto heldFile=folder/"held.cfg";fr::replaceText(heldFile,"old");std::ifstream oldReader(heldFile);
+ fr::replaceText(heldFile,"new");std::string oldText;oldReader>>oldText;check(oldText=="old","Atomic replacement preserves an open reader's inode");
+ {std::ifstream newReader(heldFile);std::string text;newReader>>text;check(text=="new","New readers see the committed account");}
+#endif
  WagerBook b;b.open(folder/"ledger.cfg");auto w=sample();b.create(w);
  check(!b.event(randomId(),w.id,1,1),"Other trainers cannot authorize a deposit");check(!b.event(w.players[0],w.id,3,1),"No result before native battle");
  check(b.event(w.players[0],w.id,1,1)&&b.event(w.players[0],w.id,1,1),"Duplicate deposit acknowledgement is idempotent");check(b.find(w.id)->phase==WagerPhase::Reserving,"One deposit does not open cable");b.event(w.players[1],w.id,1,1);check(b.find(w.id)->phase==WagerPhase::Ready,"Both deposits enable cable");
