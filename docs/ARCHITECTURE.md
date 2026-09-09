@@ -1,6 +1,6 @@
 # Architecture
 
-FireRed remains the game. The launcher validates a user-supplied ROM; the runtime executes its ARM/Thumb code, reads its graphics and encounter data, and uses its own battle, story and save routines. Essentials and Following Pokemon EX were inspected as behavioral references. Their code and graphics are not runtime dependencies.
+FireRed remains the game. The launcher validates a user-supplied ROM; the runtime executes its ARM/Thumb code, reads its graphics and encounter data, and uses its own battle, story and save routines. Essentials and Following Pokemon EX were inspected as behavioral references. Required directional follower sheets are included under assets/followers; the full reference packs and Ruby code are not runtime dependencies.
 
 ## Execution
 The Windows C++20 application uses a pinned, modified gbarecomp runtime and ARM recompilation core. Its hardware layer supplies memory, PPU, DMA, timers, IRQs, audio, input and cartridge flash. A BIOS image is not required: high-level BIOS services include mGBA-derived routines under MPL-2.0 and local boot/IRQ/interrupt-wait integration. Their timing is approximate. Long service cycle budgets are consumed in short slices so timer and serial interrupts continue during transfers and map decompression.

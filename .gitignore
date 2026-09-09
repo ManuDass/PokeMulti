@@ -47,6 +47,38 @@ __pycache__/
 profile.cfg
 identity.cfg
 friends.cfg
-/Poké Ball Plus/*
-!/Poké Ball Plus/ob0008_00_gadgets.dae
-!/Poké Ball Plus/ob0008_00_obj_col.png
+/PokÃ© Ball Plus/*
+!/PokÃ© Ball Plus/ob0008_00_gadgets.dae
+!/PokÃ© Ball Plus/ob0008_00_obj_col.png
+
+# Local planning, retired tooling and unused source-art variants.
+/PROJECT_PLAN.md
+/docs/FOLLOW_POKEMON.md
+/docs/OVERWORLD_POKEMON.md
+/scripts/build_reusable_environment_atlas.py
+/scripts/export_environment_tiles.py
+/tools/rom/inspect_local.py
+/scripts/campaign_native_acceptance.py
+/scripts/campaign_native_careers.py
+/scripts/campaign_native_cold.py
+/scripts/campaign_native_control.py
+/scripts/campaign_native_messages.py
+/scripts/campaign_native_personal_save.py
+/scripts/campaign_native_probe.py
+/scripts/campaign_native_resume.py
+/scripts/campaign_native_road.py
+/scripts/campaign_native_savecheck.py
+/scripts/campaign_native_trainer_resume.py
+/scripts/campaign_native_trainers.py
+/scripts/released_control.py
+/scripts/released_native_probe.py
+/scripts/released_sequence.py
+/scripts/released_watch.py
+/scripts/route_exit_probe.py
+/generated/
+/Fonts/
+
+/run_player2.bat
+/scripts/launch_player2.bat
+/docs/GAME_HOOKS.md
+/Poké Ball Plus/

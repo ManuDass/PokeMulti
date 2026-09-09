@@ -14,7 +14,7 @@ Ordinary progress requests an automatic checkpoint every 900 game frames, approx
 
 ## Files and migration
 
-The default launcher data folder remains `%LOCALAPPDATA%\FireRedRecomp`; the second-player launcher uses `%LOCALAPPDATA%\FireRedRecomp-Player2`. Custom `--data-dir` folders work too.
+The default launcher data folder remains `%LOCALAPPDATA%\FireRedRecomp`. Custom `--data-dir` folders work too.
 
 ```
 worlds/<world-id>/
