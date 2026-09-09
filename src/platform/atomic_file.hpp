@@ -11,7 +11,7 @@
 namespace fr {
 inline void replaceText(const std::filesystem::path& path,const std::string& content){
     std::filesystem::create_directories(path.parent_path());
-    const auto temp=path.wstring()+L".tmp";
+    auto temp=path;temp += ".tmp";
     {std::ofstream f(temp,std::ios::binary|std::ios::trunc);f<<content;f.flush();if(!f)throw std::runtime_error("Could not write the account record");}
 #ifdef _WIN32
     DWORD error=0;

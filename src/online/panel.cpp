@@ -28,7 +28,7 @@
 namespace fr::online {
 namespace {
 void atomicText(const std::filesystem::path& path,const std::string& text){
-    const auto temp=path.wstring()+L".tmp";
+    auto temp=path;temp += ".tmp";
     {std::ofstream file(temp,std::ios::binary|std::ios::trunc);file<<text;file.flush();if(!file)throw std::runtime_error("Could not write profile settings");}
 #ifdef _WIN32
     if(!MoveFileExW(temp.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Could not replace profile settings");

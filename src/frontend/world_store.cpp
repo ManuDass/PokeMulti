@@ -44,7 +44,7 @@ secureRandom(data.data(),data.size());
 #endif
 std::string id;for(auto c:data){id+="0123456789abcdef"[c>>4];id+="0123456789abcdef"[c&15];}return id;}
 void atomicWorldFile(const std::filesystem::path& file,std::span<const uint8_t> bytes){
-    std::filesystem::create_directories(file.parent_path());const auto temp=file.wstring()+L".tmp";
+    std::filesystem::create_directories(file.parent_path());auto temp=file;temp += ".tmp";
 #ifdef _WIN32
     HANDLE h=CreateFileW(temp.c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
     if(h==INVALID_HANDLE_VALUE)throw std::runtime_error("Cannot write world checkpoint.");DWORD written=0;

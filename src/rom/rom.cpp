@@ -106,10 +106,6 @@ std::string revisionName(FireRedRevision revision) {
     }
 }
 std::string describe(const RomReport& report) {
-    #else
-    std::vector<uint8_t> result(sha256?CC_SHA256_DIGEST_LENGTH:CC_SHA1_DIGEST_LENGTH);
-    if(sha256)CC_SHA256(bytes.data(),CC_LONG(bytes.size()),result.data());else CC_SHA1(bytes.data(),CC_LONG(bytes.size()),result.data());
-    #endif
     std::ostringstream out;
     out << (report.supported() ? "ROM identity verified: " + revisionName(report.revision) : report.error)
         << "\nSHA-256: " << report.sha256 << "\nSHA-1: " << report.sha1
