@@ -38,7 +38,7 @@ void Launcher::layoutWorlds(){
         button(206,L"Create world",D2D1::RectF(472,390,960,444),true);button(Back,L"Back to worlds",D2D1::RectF(472,463,960,505));return;
     }
     const bool host=page_==Page::HostWorld;
-    if(!host){worldEdit(0,L"127.0.0.1",D2D1::RectF(472,266,960,302));button(208,L"Paste invite",D2D1::RectF(724,410,960,446));}
+    if(!host){worldEdit(0,L"127.0.0.1",D2D1::RectF(472,266,788,302));button(209,L"Same PC",D2D1::RectF(802,266,960,302));button(208,L"Paste invite",D2D1::RectF(724,410,960,446));}
     worldEdit(1,L"",D2D1::RectF(472,host?266:338,960,host?302:374));
     worldEdit(2,L"38475",D2D1::RectF(472,host?338:410,708,host?374:446),true);
     if(host){worldEdit(3,L"4",D2D1::RectF(724,338,960,374),true);
@@ -59,6 +59,7 @@ void Launcher::paintWorlds(){
     text(L"ROOM KEY",D2D1::RectF(472,host?240:312,960,host?264:336),12,Muted,true);
     text(L"PORT",D2D1::RectF(472,host?312:384,708,host?336:408),12,Muted,true);
     if(host){text(L"PLAYER LIMIT (2-32)",D2D1::RectF(724,312,960,336),12,Muted,true);text(L"SHARED REWARDS / MONEY STAYS PERSONAL",D2D1::RectF(472,397,960,425),12,Muted,true);}
+    if(!host)text(L"Same PC uses 127.0.0.1. Start Host world in the other session.",D2D1::RectF(472,589,960,620),14,Muted);
 }
 bool Launcher::worldCommand(int id){
     if(id>=240&&id<243&&page_==Page::Menu){selectedWorld_=worldPage_*3+size_t(id-240);layout();return true;}
@@ -67,6 +68,7 @@ bool Launcher::worldCommand(int id){
     if(id==206){wchar_t name[33]{};GetWindowTextW(nameEdit_,name,33);auto created=createWorld(dataRoot_,narrow(name),profile_->romSha256);worlds_.clear();refreshWorlds();for(size_t i=0;i<worlds_.size();++i)if(worlds_[i].id==created.id)selectedWorld_=i;worldPage_=selectedWorld_/3;page_=Page::Menu;layout();return true;}
     if(id>=210&&id<213){worldRewards_^=uint8_t(1u<<(id-210));layout();return true;}
     if(id==207){playGame(page_==Page::HostWorld?1:2);return true;}
+    if(id==209&&page_==Page::JoinWorld){SetWindowTextW(worldEdits_[0],L"127.0.0.1");gameFailed_=false;status_=L"Use the same room key and port as the host session on this PC.";layout();return true;}
     if(id==208&&page_==Page::JoinWorld){
         std::wstring value;
         if(OpenClipboard(window_)){if(auto data=GetClipboardData(CF_UNICODETEXT)){if(auto text=static_cast<const wchar_t*>(GlobalLock(data))){value=text;GlobalUnlock(data);}}CloseClipboard();}

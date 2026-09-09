@@ -299,6 +299,12 @@ int wmain(int argc, wchar_t** argv) {
         if(worldDisconnected){const std::string notice="Connection to the host ended. Your latest checkpoint is kept in the host world.";fr::atomicWorldFile(identityPath/"world-return.txt",{reinterpret_cast<const uint8_t*>(notice.data()),notice.size()});}
         return result;
     } catch (const std::exception& error) {
-        std::cerr<<"PokeMulti runtime: "<<error.what()<<'\n'; return 1;
+        std::cerr<<"PokeMulti runtime: "<<error.what()<<'\n';
+        // Return startup failures to the launcher, including failed room joins.
+        if(!launcherRoot.empty())try{
+            const auto message=std::string(error.what()).substr(0,900);
+            fr::atomicWorldFile(launcherRoot/"world-return.txt",{reinterpret_cast<const uint8_t*>(message.data()),message.size()});
+        }catch(...){ }
+        return 1;
     }
 }

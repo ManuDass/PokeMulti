@@ -71,6 +71,8 @@ private:
     void worldEdit(unsigned index,const std::wstring& value,D2D1_RECT_F rect,bool number=false);
     std::wstring worldEditText(unsigned index);
     HANDLE gameProcess_ = nullptr;
+    int gameMode_=0;
+    bool gameFailed_=false;
     HANDLE installerMutex_ = nullptr;
     HANDLE updateProcess_ = nullptr;
     std::filesystem::path updateWork_;

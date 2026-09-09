@@ -177,7 +177,8 @@ LRESULT Launcher::handle(UINT message, WPARAM wParam, LPARAM lParam) {
             SetForegroundWindow(window_);
             status_=code==0 ? L"World closed. Your latest checkpoint is kept by the world owner." : L"Game stopped with an error. See runtime.log in your profile folder.";
             const auto reason=dataRoot_/"world-return.txt";if(std::filesystem::exists(reason)){auto bytes=readWorldFile(reason,1024);status_=widen(std::string(bytes.begin(),bytes.end()));std::filesystem::remove(reason);}
-            page_=Page::Menu;
+            gameFailed_=code!=0;
+            page_=gameFailed_&&gameMode_==2?Page::JoinWorld:gameFailed_&&gameMode_==1?Page::HostWorld:Page::Menu;
             layout();
         }
         if (wParam == 1) {
@@ -379,7 +380,8 @@ HRESULT Launcher::drawScene(ID2D1RenderTarget* surface) {
             text(L"Your setup, at a glance.",D2D1::RectF(472,191,960,235),28,Ink,true);
             text(L"F3  Diagnostics     F11  Fullscreen",D2D1::RectF(472,556,950,588),14,Muted);
         }
-        text(status_,D2D1::RectF(42,639,873,688),13,Muted);
+        if(gameFailed_){panel(D2D1::RectF(40,627,873,690),0xFFF0E6,8);text(status_,D2D1::RectF(52,635,861,683),16,Red);}
+        else text(status_,D2D1::RectF(42,639,873,688),13,Muted);
         if (overlay_) {
             panel(D2D1::RectF(58,426,394,595),0xFFF8E9,8,Line);
             const auto revision=validated_ ? widen(revisionName(validated_->report.revision)) : L"No ROM";
@@ -590,7 +592,7 @@ void Launcher::playGame(int mode) {
     const BOOL ok=CreateProcessW(exe.c_str(),cmd.data(),nullptr,nullptr,TRUE,CREATE_NO_WINDOW,nullptr,dataRoot_.c_str(),&startup,&process);
     CloseHandle(output);if(input!=INVALID_HANDLE_VALUE)CloseHandle(input);
     if(!ok) throw std::runtime_error("Could not start Pok\xc3\xa9Multi (Windows error "+std::to_string(GetLastError())+").");
-    CloseHandle(process.hThread);gameProcess_=process.hProcess;
+    CloseHandle(process.hThread);gameProcess_=process.hProcess;gameMode_=mode;gameFailed_=false;
     log_.write("RUNTIME", "Started game: "+narrow(exe.wstring()));
     ShowWindow(window_,SW_HIDE);
     status_=L"World open. Progress checkpoints automatically; the host can save everyone from the game menu.";layout();

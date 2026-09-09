@@ -7,6 +7,10 @@ world checkpoints, rewards, wagers, camps, sprites and the underlying runtime.
 
 Packaged launcher checks cover profile creation and rename, world selection,
 host settings, native game startup, clean shutdown and return to the launcher.
+Two packaged sessions also passed host/join, rejected-key recovery and host-loss
+return checks. Native acceptance checks passed private checkpoints, cold reconnect,
+trade invitations and abrupt host-loss handling. A real 0.26.0-to-0.26.2 update
+verified every installed file and restarted with the same disposable profile.
 The Windows setup wizard was installed into a separate folder; installed files
 matched the package manifest, the game launched successfully, and uninstalling
 preserved an extra user file. These checks used disposable profiles.

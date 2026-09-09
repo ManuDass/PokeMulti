@@ -4,6 +4,8 @@ launch PokéMulti from the installed shortcut. No development tools are needed.
 - Cleaner launcher header with a compact username **Edit** control.
 - Change your online name without changing your in-game name or progress.
 - Install future releases through **Update program** in the launcher.
+- Failed joins explain the problem and keep the connection form ready to retry.
+- A **Same PC** connection shortcut selects the local host address.
 - Cleaner public source layout and documentation; local test launchers are
   excluded from the download.
 
