@@ -1,4 +1,4 @@
-POKEMULTI 0.26.0 - WINDOWS 10/11, 64-BIT
+POKEMULTI 0.26.2 - WINDOWS 10/11, 64-BIT
 
 1. Run PokeMulti-Setup.exe from the GitHub release and choose an install folder.
    Portable alternative: extract the entire versioned ZIP into a folder.
@@ -19,8 +19,7 @@ Select a world, or choose New world. Play world starts solo play. Host world
 lets you choose the room key, reward rules and a player limit from 2 to 32.
 Internet hosts forward the selected TCP port (default 38475) to their PC and
 allow the app through Windows Firewall. Room > Invite friends supplies the
-connection details. Same-PC testing uses 127.0.0.1; LAN players use the host's
-LAN address. A public IP alone does not bypass a router or carrier-grade NAT.
+connection details. LAN players use the host's LAN address. A public IP alone does not bypass a router or carrier-grade NAT.
 
 QUICK CONTROLS
 WASD / arrows  Move             X       Confirm / interact / nearby battle
@@ -41,10 +40,6 @@ a session safely. Each world keeps personal teams, items and money separately.
 Data is stored in %LOCALAPPDATA%\FireRedRecomp, outside this program folder.
 Back up that folder, including identity.cfg and identity.key, to keep your
 worlds and trainer identity. Do not send it as part of the program package.
-
-SECOND PLAYER ON ONE PC
-launch_player2.bat uses a separate local trainer profile. Choose Join a friend
-and use the first player's same-PC invite.
 
 More detail: docs\WORLDS.md and docs\MULTIPLAYER.md.
 Original supplied artwork, fonts, credits and dependency notices are included.

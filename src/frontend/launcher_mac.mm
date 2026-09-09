@@ -4,6 +4,7 @@
 #include "frontend/cartridge.hpp"
 #include "online/connection.hpp"
 #include "game/world.hpp"
+#include "game/reward_policy.hpp"
 #include "platform/image.hpp"
 #include "platform/text.hpp"
 #include "platform/version.hpp"

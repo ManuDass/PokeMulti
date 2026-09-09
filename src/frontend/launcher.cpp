@@ -222,7 +222,7 @@ void Launcher::layout() {
     ShowWindow(nameEdit_,SW_HIDE);for(auto edit:worldEdits_)if(edit)ShowWindow(edit,SW_HIDE);
     button(Artwork,artBusy_?L"Loading game art...":L"Choose label art",D2D1::RectF(70,550,380,586),false,validated_.has_value()&&!artBusy_);
     button(Quit,L"Quit",D2D1::RectF(894,639,996,676));
-    if(profile_)button(EditName,L"Edit username",D2D1::RectF(577,70,763,104),false,!gameProcess_&&!updateProcess_&&!busy_);
+    if(profile_)button(EditName,L"Edit",D2D1::RectF(909,47,997,85),false,!gameProcess_&&!updateProcess_&&!busy_);
     if (page_ == Page::Welcome) {
         button(Browse,busy_ ? L"Validating your ROM..." : L"Select ROM",D2D1::RectF(472,399,960,453),true,!busy_);
         button(Updates,L"Update program",D2D1::RectF(472,559,960,596),false,!busy_);
@@ -337,9 +337,13 @@ HRESULT Launcher::drawScene(ID2D1RenderTarget* surface) {
         bitmap(logo_,D2D1::RectF(40,36,88,84));
         text(L"Pok\u00e9Multi",D2D1::RectF(105,31,400,69),30,Ink,true);
         text(L"Y O U R   G A M E S .   T O G E T H E R .",D2D1::RectF(107,71,550,94),10,Muted,true);
-        if(profile_)text(widen(profile_->playerName),D2D1::RectF(577,36,765,64),14,Ink,true);
-        panel(D2D1::RectF(782,44,997,78),0xE8EEDC,16);
-        text(std::wstring(L"EXPERIMENTAL  /  ")+BuildVersionWide,D2D1::RectF(805,52,985,75),12,0x56634C,true);
+        if(profile_){
+            text(L"ONLINE USERNAME",D2D1::RectF(678,31,895,48),12,Muted,true);
+            text(widen(profile_->playerName),D2D1::RectF(678,54,895,83),16,Ink,true);
+        }
+        const float badgeLeft=profile_?434.f:782.f;
+        panel(D2D1::RectF(badgeLeft,44,badgeLeft+215,78),0xE8EEDC,16);
+        text(std::wstring(L"EXPERIMENTAL  /  ")+BuildVersionWide,D2D1::RectF(badgeLeft+23,52,badgeLeft+203,75),12,0x56634C,true);
         panel(D2D1::RectF(40,121,410,611),0x1C222C,18);
         text(L"ON YOUR SHELF",D2D1::RectF(68,147,385,171),12,0xA4AEB7,true);
         text(L"Pick up your adventure.",D2D1::RectF(68,178,390,210),22,0xF6F4ED,true);

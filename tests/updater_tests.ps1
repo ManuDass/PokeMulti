@@ -15,12 +15,14 @@ function Fixture([string]$name,[string]$contents) {
     [IO.File]::WriteAllText((Join-Path $folder 'package-manifest.json'),($records | ConvertTo-Json),$script:Utf8)
     return $folder
 }
-function Zip-Fixture([string]$folder,[string]$name,[string]$extra='') {
+function Zip-Fixture([string]$folder,[string]$name,[string]$extra='',[bool]$windowsPaths=$false) {
     $path=Join-Path $testRoot ($name+'.zip');$z=[IO.Compression.ZipFile]::Open($path,[IO.Compression.ZipArchiveMode]::Create)
     try {
         foreach ($file in Get-ChildItem -LiteralPath $folder -Recurse -File) {
             $relative=$file.FullName.Substring($folder.Length+1).Replace('\','/')
-            [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z,$file.FullName,('PokeMulti-0.26.0/'+$relative))
+            $entryName='PokeMulti-0.26.0/'+$relative
+            if ($windowsPaths) { $entryName=$entryName.Replace('/','\') }
+            [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z,$file.FullName,$entryName)
         }
         if ($extra) { $entry=$z.CreateEntry($extra);$stream=$entry.Open();try {$stream.WriteByte(1)}finally{$stream.Dispose()} }
     } finally { $z.Dispose() }
@@ -34,8 +36,11 @@ try {
     $new=Fixture 'new' 'new-content-';$zip=Zip-Fixture $new 'valid'
     $expanded=Join-Path $testRoot 'expanded';Expand-VerifiedPackage $zip $expanded '0.26.0' (Hash-File $zip)
     Assert ((Hash-File (Join-Path $expanded 'pokemulti.exe')) -eq (Hash-File (Join-Path $new 'pokemulti.exe'))) 'Valid package failed extraction.'
+    $windowsZip=Zip-Fixture $new 'windows-separators' '' $true
+    Expand-VerifiedPackage $windowsZip (Join-Path $testRoot 'windows-expanded') '0.26.0' (Hash-File $windowsZip)
+    Assert ((Hash-File (Join-Path $testRoot 'windows-expanded/tools/update.ps1')) -eq (Hash-File (Join-Path $new 'tools/update.ps1'))) 'Windows ZIP paths failed extraction.'
     Reject { Expand-VerifiedPackage $zip (Join-Path $testRoot 'bad-digest') '0.26.0' ('0'*64) } 'Incorrect package digest accepted.'
-    foreach ($extra in @('PokeMulti-0.26.0/../../escape.txt','PokeMulti-0.26.0/POKEMULTI.EXE','PokeMulti-0.26.0/extra.txt','PokeMulti-0.26.0/worlds/data.pmsv')) {
+    foreach ($extra in @('PokeMulti-0.26.0/../../escape.txt','PokeMulti-0.26.0/POKEMULTI.EXE','PokeMulti-0.26.0/extra.txt','PokeMulti-0.26.0/worlds/data.pmsv','PokeMulti-0.26.0\..\escape.txt','PokeMulti-0.26.0\tools\update.ps1')) {
         $id=[guid]::NewGuid().ToString('N');$bad=Zip-Fixture $new $id $extra
         Reject { Expand-VerifiedPackage $bad (Join-Path $testRoot $id) '0.26.0' (Hash-File $bad) } 'Unsafe or unlisted ZIP entry accepted.'
     }

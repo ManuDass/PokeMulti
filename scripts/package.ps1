@@ -31,7 +31,7 @@ foreach ($file in Get-ChildItem -LiteralPath $resolvedPackage -File -Recurse) {
     if ($relative -match '(?i)(^|/)(cache|native-cache|roms|userdata|generated|worlds|guest-cache|backups|migration-backups|Following Pokemon EX|Pokemon Essentials[^/]*)(/|$)' -or
         $relative -match '(?i)\.(gba|gbc|nds|rom|sav|state|sa1|ss0|pmsv|bak|lock|key)(\.|$)' -or
         $relative -match '(?i)(^|/)(profile|identity|friends|wager-wallet|wagers-host|released-world)\.cfg$' -or
-        $relative -match 'fr_game_harness|fr_rom_disasm|fr_tests') { throw "Private/test data in install: $relative" }
+        $relative -match 'fr_game_harness|fr_rom_disasm|fr_tests|launch_player2|run_player2') { throw "Private/test data in install: $relative" }
     if ($file.Length -eq 16777216) {
         $stream = [IO.File]::OpenRead($file.FullName)
         try {
@@ -45,7 +45,16 @@ foreach ($file in Get-ChildItem -LiteralPath $resolvedPackage -File -Recurse) {
 $manifestPath = Join-Path $resolvedPackage 'package-manifest.json'
 [IO.File]::WriteAllText($manifestPath,($manifest | ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false))
 $archive = Join-Path $distributionRoot ("PokeMulti-"+$Version+".zip")
-Compress-Archive -LiteralPath $resolvedPackage -DestinationPath $archive -Force
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archiveStream=[IO.File]::Open($archive,[IO.FileMode]::Create,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+$zip=[IO.Compression.ZipArchive]::new($archiveStream,[IO.Compression.ZipArchiveMode]::Create,$false)
+try {
+    foreach ($file in Get-ChildItem -LiteralPath $resolvedPackage -File -Recurse) {
+        $relative=$file.FullName.Substring($resolvedPackage.Length+1).Replace('\','/')
+        [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$file.FullName,("PokeMulti-$Version/"+$relative),[IO.Compression.CompressionLevel]::Optimal)
+    }
+} finally { $zip.Dispose();$archiveStream.Dispose() }
 Write-Output "Package: $resolvedPackage"
 Write-Output "Archive: $archive"
 Write-Output "Audited $($manifest.Count) files; no ROMs, private saves, native caches or test executables."

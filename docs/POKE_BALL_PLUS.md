@@ -4,7 +4,7 @@ Available in PokeMulti 0.23.1 on Windows 10/11 with Bluetooth LE. This is the ba
 
 ## Connect
 
-1. Launch `run.bat` (or `run_player2.bat`) and start your game.
+1. Launch `run.bat` and start your game.
 2. Open **Options > Controller** in the game sidebar.
 3. Disconnect the ball from any phone, Switch or other controller utility currently using it. Press its top button to wake it.
 4. Select **Find controller**. The scan lasts eight seconds. Each detected ball appears with an address suffix so you can choose the correct one.
@@ -23,7 +23,7 @@ Available in PokeMulti 0.23.1 on Windows 10/11 with Bluetooth LE. This is the ba
 
 Use the native Start menu for Camp and Save. Keyboard controls remain available, including Select and L/R. **Adjust controls** saves the stick dead zone (10-60%), A/B swap and Y inversion in that profile's `controller.cfg`. The default dead zone is 25%, with release hysteresis to prevent flickering near center. Individual buttons wait 90ms to recognize the Start combination; quick individual taps are preserved on release. Press both together promptly; the chord emits Start once and suppresses A/B until both are released.
 
-The live stick dot and two button lights show received input even while the sidebar is focused. Editing the sidebar/chat or switching away from the window blocks game input. Select **Resume game** (or click the game picture / press Esc) and release the controls before moving again. The status distinguishes active controls, paused input and waiting for release. Neutral arming uses the same dead zone as movement; the smaller hysteresis threshold only governs releasing an existing direction. A missing report for 750ms releases accessory input; disconnect also releases it. A reconnect requires neutral controls before it can move or select anything. A ball can be reserved by only one PokeMulti window on the same Windows session; Player 2 can use another ball or the keyboard.
+The live stick dot and two button lights show received input even while the sidebar is focused. Editing the sidebar/chat or switching away from the window blocks game input. Select **Resume game** (or click the game picture / press Esc) and release the controls before moving again. The status distinguishes active controls, paused input and waiting for release. Neutral arming uses the same dead zone as movement; the smaller hysteresis threshold only governs releasing an existing direction. A missing report for 750ms releases accessory input; disconnect also releases it. A reconnect requires neutral controls before it can move or select anything. A ball can be reserved by only one PokeMulti window on the same Windows session..
 
 Battery percentage appears only when the device returns a valid reading. A battery-service failure does not disable the controller. This implementation covers stick/buttons and battery. Lights, rumble, speaker audio and Pokemon stored in the accessory are not implemented or modified.
 

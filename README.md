@@ -33,9 +33,6 @@ provides internet, LAN and same-PC invitations. A public address alone does not
 configure a router; carrier-grade NAT may prevent direct hosting. There is no
 public directory or relay service.
 
-To test two trainers on one PC, run `launch_player2.bat` in the installed folder
-and join the first trainer's same-PC invite.
-
 ## Worlds and multiplayer
 
 The host world stores a separate checkpoint for each trainer. Supported story
@@ -80,14 +77,14 @@ outdoor grass; walking outside its boundary automatically packs it up. A
 
 ## Usernames and updates
 
-**Edit username** in the launcher changes your online name without changing
+**Edit** beside your username in the launcher changes your online name without changing
 FireRed's narrative trainer name, identity or saved progress.
 
 **Update program → Check for updates → Download & restart** installs future
 stable GitHub releases. The updater verifies the download and program files,
 preserves personal data, and rolls back replaced files if installation fails.
 Close other sessions using that installation before updating.
-Users on 0.25.0 or earlier need to install 0.26.0 once to obtain the updater.
+Users on 0.25.0 or earlier need to install 0.26.2 once to obtain the updater.
 See [updates](docs/UPDATES.md).
 
 Worlds and identities live outside the installation, in
@@ -120,7 +117,7 @@ generated native game-code caches are excluded.
 
 ## Status and credits
 
-**0.26.0 · FRMP 19 · experimental.** FireRed US 1.0 boots, plays, saves and reloads.
+**0.26.2 · FRMP 19 · experimental.** FireRed US 1.0 boots, plays, saves and reloads.
 Local two-process checks cover room play, native battles and durable trades.
 Full campaign coverage, US 1.1 gameplay and cross-PC/WAN cable timing need more
 testing. [Validation notes](docs/VALIDATION.md) describe the evidence and limits.

@@ -114,13 +114,16 @@ function Expand-VerifiedPackage([string]$zip,[string]$target,[string]$version,[s
         if ($archive.Entries.Count -gt 20000) { throw 'Too many package entries.' }
         $prefix="PokeMulti-$version/"; $names=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase); [long]$total=0
         foreach ($entry in $archive.Entries) {
-            if (!$entry.FullName.StartsWith($prefix,[StringComparison]::Ordinal)) { throw 'Unexpected package root.' }
+            # Older Windows Compress-Archive versions emit backslash separators.
+            # Canonicalize before every root, traversal and duplicate check.
+            $entryName=$entry.FullName.Replace('\','/')
+            if (!$entryName.StartsWith($prefix,[StringComparison]::Ordinal)) { throw 'Unexpected package root.' }
             if ((($entry.ExternalAttributes -shr 16) -band 0xF000) -eq 0xA000 -or ($entry.ExternalAttributes -band 0x400)) { throw 'Linked files are not allowed in updates.' }
-            $relative=$entry.FullName.Substring($prefix.Length).TrimEnd('/')
+            $relative=$entryName.Substring($prefix.Length).TrimEnd('/')
             if (!$relative) { continue }
             $path=Child-Path $target $relative; Assert-ProgramPath $relative
             if (!$names.Add($relative)) { throw 'Duplicate package entry.' }
-            if ($entry.FullName.EndsWith('/')) { [IO.Directory]::CreateDirectory($path) | Out-Null; continue }
+            if ($entryName.EndsWith('/')) { [IO.Directory]::CreateDirectory($path) | Out-Null; continue }
             $total+=$entry.Length
             if ($entry.Length -gt 67108864 -or $total -gt 536870912) { throw 'Expanded update exceeds its size limit.' }
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)) | Out-Null
