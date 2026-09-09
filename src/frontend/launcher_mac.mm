@@ -37,6 +37,7 @@ struct Launcher {
     std::future<std::pair<fr::RomReport,std::filesystem::path>> pending;
     std::vector<fr::WorldInfo> worlds;size_t selected=0,pageIndex=0;
     Page page=Page::Welcome;std::string status;std::array<char,128> name{},address{},key{};
+    int gameMode=0;bool gameFailed=false;std::string previewCode;
     int port=38475,capacity=4;uint8_t rewards=fr::game::DefaultRewardSharing;bool quit=false,smoke=false,gameSeen=false;
     float scale=1,ox=0,oy=0,yaw=-.22f,pitch=.10f;fr::Image label;pid_t game=0;unsigned frames=0;
     ImVec2 point(float x,float y)const{return {ox+x*scale,oy+y*scale};}
@@ -59,7 +60,7 @@ struct Launcher {
         auto* value=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_RGBA32,SDL_TEXTUREACCESS_STATIC,image.width,image.height);if(!value)throw std::runtime_error(SDL_GetError());
         SDL_SetTextureBlendMode(value,SDL_BLENDMODE_BLEND);SDL_SetTextureScaleMode(value,SDL_ScaleModeNearest);SDL_UpdateTexture(value,nullptr,image.pixels.data(),image.width*4);return value;
     }
-    void updateCartridge(){if(cartridge)SDL_DestroyTexture(cartridge);cartridge=texture(fr::renderCartridge(label,0xc14326,yaw,pitch));}
+    void updateCartridge(){if(cartridge)SDL_DestroyTexture(cartridge);cartridge=texture(fr::renderCartridge(label,fr::cartridgeStyle(report?report->gameCode:previewCode).color,yaw,pitch));}
     void validate(const std::filesystem::path& path){
         if(pending.valid())return;status="Checking your ROM...";
         pending=std::async(std::launch::async,[path]{return std::pair{fr::inspectRom(fr::readRom(path)),path};});
@@ -72,7 +73,8 @@ struct Launcher {
             if(profile){profile->romPath=path;profile->romSha256=checked.sha256;fr::saveProfile(data/"profile.cfg",*profile);refresh();page=Page::Worlds;}
             else{page=Page::Profile;setName("");}status="ROM verified. Stored locally.";
         }
-        if(game){int code=0;const auto done=waitpid(game,&code,WNOHANG);if(done==game){game=0;SDL_ShowWindow(window);SDL_RaiseWindow(window);page=Page::Worlds;refresh();status=WIFEXITED(code)&&WEXITSTATUS(code)==0?"Your world is closed.":"The game closed with an error. Open Settings > Runtime log for details.";}}
+        if(game){int code=0;const auto done=waitpid(game,&code,WNOHANG);if(done==game){game=0;SDL_ShowWindow(window);SDL_RaiseWindow(window);gameFailed=!WIFEXITED(code)||WEXITSTATUS(code)!=0;page=gameFailed?(gameMode==2?Page::Join:Page::Host):Page::Worlds;refresh();status=gameFailed?"The game closed with an error. Open Settings > Runtime log for details.":"Your world is closed.";
+            const auto notice=data/"world-return.txt";if(std::filesystem::exists(notice)&&std::filesystem::file_size(notice)<=900){std::ifstream in(notice);status.assign(std::istreambuf_iterator<char>(in),{});std::filesystem::remove(notice);}}}
     }
     void launch(int mode){
         if(!profile||!report||game||pending.valid())return;
@@ -89,8 +91,9 @@ struct Launcher {
         posix_spawn_file_actions_addopen(&actions,STDIN_FILENO,"/dev/null",O_RDONLY,0);
         posix_spawn_file_actions_addopen(&actions,STDOUT_FILENO,(data/"runtime.log").c_str(),O_WRONLY|O_CREAT|O_TRUNC,0600);
         posix_spawn_file_actions_adddup2(&actions,STDOUT_FILENO,STDERR_FILENO);
+        std::error_code ec;std::filesystem::remove(data/"world-return.txt",ec);
         pid_t child=0;const int result=posix_spawn(&child,exe.c_str(),&actions,nullptr,raw.data(),environ);posix_spawn_file_actions_destroy(&actions);
-        if(result)throw std::runtime_error("Cannot start the bundled game.");game=child;gameSeen=true;SDL_HideWindow(window);
+        if(result)throw std::runtime_error("Cannot start the bundled game.");gameMode=mode;gameFailed=false;game=child;gameSeen=true;SDL_HideWindow(window);
     }
     void draw(){
         int w=0,h=0;SDL_GetWindowSize(window,&w,&h);scale=std::min(w/1040.f,h/700.f);ox=(w-1040*scale)/2;oy=(h-700*scale)/2;
@@ -107,10 +110,10 @@ struct Launcher {
         ImGui::GetWindowDrawList()->AddImage((ImTextureID)(intptr_t)cartridge,point(40,205),point(410,525));
         ImGui::SetCursorScreenPos(point(60,235));ImGui::InvisibleButton("cartridge drag",{330*scale,250*scale});
         if(ImGui::IsItemActive()&&ImGui::IsMouseDragging(ImGuiMouseButton_Left)){yaw+=io.MouseDelta.x*.008f;pitch=std::clamp(pitch+io.MouseDelta.y*.004f,-.65f,.65f);updateCartridge();}
-        string("DRAG TO ROTATE",168,470,10,IM_COL32(160,179,187,255));string("Pokémon FireRed",69,506,22,IM_COL32_WHITE,true);
+        string("DRAG TO ROTATE",168,470,10,IM_COL32(160,179,187,255));string(fr::narrow(fr::cartridgeStyle(report?report->gameCode:previewCode).title),69,506,22,IM_COL32_WHITE,true);
         if(button("Choose label art",70,550,310,36)&&report){auto file=chooseFile(@[@"png",@"jpg",@"jpeg"]);if(!file.empty()){label=fr::readImage(file);updateCartridge();auto target=data/"artwork"/report->sha256/"label.png";std::filesystem::create_directories(target.parent_path());std::filesystem::copy_file(file,target,std::filesystem::copy_options::overwrite_existing);}}
         if(pending.valid()){string("Checking your ROM...",472,199,24,ink,true);}
-        else if(page==Page::Welcome){string("WELCOME",472,157,12,red);string("Your next adventure starts here.",472,198,24,ink,true);string("Choose your own English FireRed US 1.0 or 1.1 ROM.\nA .gba file or ZIP with one .gba is supported.",472,290,18,muted);if(button("Select ROM",472,399,488,54,true))chooseRom();}
+        else if(page==Page::Welcome){string("WELCOME",472,157,12,red);string("Your next adventure starts here.",472,198,24,ink,true);string("Choose English FireRed or LeafGreen US 1.0 / 1.1.\nA .gba file or ZIP with one .gba is supported.",472,290,18,muted);if(button("Select ROM",472,399,488,54,true))chooseRom();}
         else if(page==Page::Profile||page==Page::Name||page==Page::NewWorld){
             const bool world=page==Page::NewWorld,rename=page==Page::Name;
             string(world?"NEW WORLD":"YOUR PROFILE",472,157,12,red);string(world?"A fresh adventure.":rename?"A new name. Same adventure.":"Make it your adventure.",472,198,26,ink,true);
@@ -122,7 +125,7 @@ struct Launcher {
                 page=Page::Worlds;status=rename?"Username saved. Your in-game name and progress stay the same.":"Ready to play.";
             }
             if(profile&&button("Cancel",472,463))page=Page::Worlds;
-            string(world?"Each world keeps its own trainers, teams and story.":"Used in rooms, chat and your friends list.\nFireRed chooses your in-game trainer name separately.",472,533,16,muted);
+            string(world?"Each world keeps its own trainers, teams and story.":"Used in rooms, chat and your friends list.\nYour game chooses its trainer name separately.",472,533,16,muted);
         }else if(page==Page::Worlds){
             string("YOUR WORLDS",472,153,12,red);string("Choose your next adventure.",472,192,27,ink,true);
             for(size_t row=0;row<3&&pageIndex*3+row<worlds.size();++row){const auto i=pageIndex*3+row;if(button((worlds[i].name+"##world"+std::to_string(i)).c_str(),472,244+row*48,488,41,i==selected))selected=i;}
@@ -135,7 +138,7 @@ struct Launcher {
             if(button("Program updates",724,545,236,36))SDL_OpenURL("https://github.com/ManuDass/PokeMulti/releases");
         }else if(page==Page::Host||page==Page::Join){
             const bool host=page==Page::Host;string(host?"HOST WORLD":"JOIN A FRIEND",472,153,12,red);string(host?worlds.at(selected).name:"Adventure together.",472,192,27,ink,true);
-            if(!host){string("HOST IPv4 ADDRESS",472,238,12,muted);field("##address",address.data(),address.size(),472,265);}
+            if(!host){string("HOST IPv4 ADDRESS",472,238,12,muted);field("##address",address.data(),address.size(),472,265,314);if(button("Same PC",802,265,158,36))SDL_strlcpy(address.data(),"127.0.0.1",address.size());}
             string("ROOM KEY",472,host?239:311,12,muted);field("##key",key.data(),65,472,host?266:338);
             string("PORT",472,host?312:384,12,muted);number("##port",port,472,host?338:410);
             if(host){string("PLAYER LIMIT (2–32)",724,312,12,muted);number("##capacity",capacity,724,338);
@@ -148,7 +151,8 @@ struct Launcher {
             string("Mac preview uses the bundled interpreter.\nKeyboard and SDL controllers are supported.\nPoké Ball Plus Bluetooth support is Windows-only.",472,448,16,muted);
             if(button("Back to worlds",472,545))page=Page::Worlds;
         }
-        string(status,42,642,14,muted);if(button("Quit",894,639,102,37))quit=true;ImGui::End();
+        if(gameFailed)box(40,627,833,63,IM_COL32(255,240,230,255),8);
+        ImGui::GetWindowDrawList()->AddText(font,14*scale,point(52,635),gameFailed?red:muted,status.c_str(),nullptr,809*scale);if(button("Quit",894,639,102,37))quit=true;ImGui::End();
     }
     int run(){
         SDL_SetMainReady();if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS)<0)throw std::runtime_error(SDL_GetError());
@@ -171,7 +175,7 @@ struct Launcher {
             ImGui_ImplSDLRenderer2_NewFrame();ImGui_ImplSDL2_NewFrame();ImGui::NewFrame();
             try{draw();}catch(const std::exception& e){status=e.what();ImGui::End();}
             ImGui::Render();SDL_SetRenderDrawColor(renderer,244,240,228,255);SDL_RenderClear(renderer);ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(),renderer);
-            if(smoke&&++frames==5){int w,h;SDL_GetRendererOutputSize(renderer,&w,&h);auto* surface=SDL_CreateRGBSurfaceWithFormat(0,w,h,32,SDL_PIXELFORMAT_RGBA32);if(!surface||SDL_RenderReadPixels(renderer,nullptr,SDL_PIXELFORMAT_RGBA32,surface->pixels,surface->pitch)<0)throw std::runtime_error("Cannot capture launcher.");SDL_SaveBMP(surface,(data/"launcher-preview.bmp").c_str());SDL_FreeSurface(surface);quit=true;}
+            if(smoke&&(++frames==5||frames==10)){int w,h;SDL_GetRendererOutputSize(renderer,&w,&h);auto* surface=SDL_CreateRGBSurfaceWithFormat(0,w,h,32,SDL_PIXELFORMAT_RGBA32);if(!surface||SDL_RenderReadPixels(renderer,nullptr,SDL_PIXELFORMAT_RGBA32,surface->pixels,surface->pitch)<0)throw std::runtime_error("Cannot capture launcher.");SDL_SaveBMP(surface,(data/(frames==5?"launcher-preview.bmp":"launcher-leafgreen.bmp")).c_str());SDL_FreeSurface(surface);if(frames==10)quit=true;else{previewCode="BPGE";label=fr::readImage(fr::assetFolder()/"Cart Art"/"Leaf Green Cart Art.png");updateCartridge();}}
             SDL_RenderPresent(renderer);
         }}
         SDL_DestroyTexture(logo);SDL_DestroyTexture(cartridge);ImGui_ImplSDLRenderer2_Shutdown();ImGui_ImplSDL2_Shutdown();ImGui::DestroyContext();SDL_DestroyRenderer(renderer);SDL_DestroyWindow(window);SDL_Quit();return 0;

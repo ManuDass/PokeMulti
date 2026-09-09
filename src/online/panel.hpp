@@ -5,7 +5,7 @@
 namespace fr::online {
 class Panel {
 public:
-    Panel(Session& session,const std::filesystem::path& data,bool visible,bool hostImmediately,const std::string& name);
+    Panel(Session& session,const std::filesystem::path& data,bool visible,bool hostImmediately,const std::string& name,const std::string& gameCode="BPRE");
     ~Panel();
     void show();
     void capture();

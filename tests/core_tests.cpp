@@ -1,4 +1,6 @@
 #include "rom/rom.hpp"
+#include "game/rom_layout.hpp"
+#include "game/unique.hpp"
 #include "runtime/probe.hpp"
 #include "frontend/profile.hpp"
 #include "platform/text.hpp"
@@ -65,7 +67,27 @@ int main() {
     test("Truncated ROM has diagnostic hash",[] { auto r=inspectRom({}); expect(!r.supported() && r.sha256.size()==64 && !r.error.empty(),"Missing rejection"); });
     test("Forged valid header does not grant support",[] { auto b=headerFixture(); auto r=inspectRom(b); expect(!r.supported() && r.error.find("Modified")!=std::string::npos,"Header-only acceptance"); });
     test("Invalid header checksum rejected",[] { auto b=headerFixture(); b[0xBD]^=1; expect(inspectRom(b).error.find("checksum")!=std::string::npos,"Bad checksum accepted"); });
-    test("LeafGreen header rejected",[] { auto b=headerFixture(); b[0xAF]='G'; checksum(b); expect(!inspectRom(b).supported(),"LeafGreen accepted"); });
+    test("LeafGreen identities and forged header",[] {
+        expect(identifyRevision("574fa542ffebb14be69902d1d36f1ec0a4afd71e",0)==FireRedRevision::LeafGreen_US_10,"LeafGreen 1.0 identity");
+        expect(identifyRevision("7862c67bdecbe21d1d69ce082ce34327e1c6ed5e",1)==FireRedRevision::LeafGreen_US_11,"LeafGreen 1.1 identity");
+        expect(identifyRevision("7862c67bdecbe21d1d69ce082ce34327e1c6ed5e",0)==FireRedRevision::Unsupported,"Wrong LeafGreen revision accepted");
+        auto b=headerFixture();const std::string title="POKEMON LEAF",code="BPGE";
+        std::copy(title.begin(),title.end(),b.begin()+0xa0);std::copy(code.begin(),code.end(),b.begin()+0xac);checksum(b);
+        expect(inspectRom(b).error.find("Modified")!=std::string::npos,"LeafGreen header skipped hash validation");
+    });
+    test("Game hooks map code, scripts and data independently",[] {
+        using namespace fr::game;
+        const auto fr11=FireRedRevision::FireRed_US_11,lg11=FireRedRevision::LeafGreen_US_11;
+        expect(romAddress(fr11,0x080565b4)==0x080565c8,"Field callback revision");
+        expect(romAddress(fr11,0x08112450)==0x081124c8,"Late code must not use early-code offset");
+        expect(romAddress(lg11,0x080565b4)!=romAddress(lg11,0x08112450)-0x08112450+0x080565b4,"LeafGreen incorrectly uses one global offset");
+        for(auto revision:{FireRedRevision::FireRed_US_10,fr11,FireRedRevision::LeafGreen_US_10,lg11}){
+            uint32_t previous=0;for(const auto& symbol:romSymbols){expect(symbol.canonical>previous,"Duplicate/unsorted hook");previous=symbol.canonical;expect(romAddress(revision,previous)>=0x08000000&&romAddress(revision,previous)<0x09000000,"Hook outside ROM");}
+            for(const auto& mon:uniquePokemon)expect(uniqueScript(romAddress(revision,mon.script),revision)==&mon,"Gift/legendary script mapping");
+        }
+        rejects([&]{romAddress(lg11,0x08001234);});
+        rejects([&]{romAddress(FireRedRevision::Unsupported,0x080565b4);});
+    });
     test("Oversized and short input rejected",[] {
         std::vector<uint8_t> shortRom(256); expect(!inspectRom(shortRom).supported(),"Short input accepted");
         std::vector<uint8_t> large(32*1024*1024+1); rejects([&] { inspectRom(large); });

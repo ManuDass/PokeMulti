@@ -47,7 +47,7 @@ std::string loadIdentity(const std::filesystem::path& folder){
     const auto id=randomId();atomicText(path,id+"\n");return id;
 }
 struct Panel::Impl {
-    Session& session;std::filesystem::path data;std::string name;
+    Session& session;std::filesystem::path data;std::string name,gameLabel;
     SDL_Texture* logo=nullptr;
     input::Pokeball ball;input::BallControls ballControls;input::BallMapping ballMapping;
     BallModel ballModel;SDL_Texture* ballTexture=nullptr;std::string ballModelError;
@@ -172,7 +172,7 @@ struct Panel::Impl {
         }
     }
 #endif
-    Impl(Session& s,std::filesystem::path p,bool visible,bool host,std::string n):session(s),data(std::move(p)),name(std::move(n)),hostMode(!visible||host),autoHost(host){
+    Impl(Session& s,std::filesystem::path p,bool visible,bool host,std::string n,const std::string& code):session(s),data(std::move(p)),name(std::move(n)),gameLabel(code=="BPGE"?"LEAFGREEN / GAME BOY ADVANCE":"FIRERED / GAME BOY ADVANCE"),hostMode(!visible||host),autoHost(host){
         SDL_strlcpy(address.data(),"127.0.0.1",address.size());SDL_strlcpy(port.data(),"38475",port.size());
         SDL_strlcpy(key.data(),randomId().substr(0,12).c_str(),key.size());
         if(session.status().connected){SDL_strlcpy(key.data(),session.connectionKey().c_str(),key.size());SDL_strlcpy(port.data(),std::to_string(session.status().port).c_str(),port.size());roomCapacity=session.status().capacity;}
@@ -495,7 +495,7 @@ struct Panel::Impl {
         const float chatHeight=size.y<720?96.f:144.f,gameBottom=bottom-chatHeight-12;
         d->AddRectFilled({left,top},{right,gameBottom},IM_COL32(18,24,32,255),15);
         d->AddRect({left,top},{right,gameBottom},IM_COL32(63,69,77,255),15,0,1);
-        label(mono,12,{left+19,top+16},IM_COL32(146,157,164,255),"FIRERED / GAME BOY ADVANCE");
+        label(mono,12,{left+19,top+16},IM_COL32(146,157,164,255),gameLabel);
         std::string money=game::walletAvailable()?std::to_string(game::walletBalance()):"--";
         if(money.size()>3)money.insert(money.size()-3,",");
         d->AddRectFilled({right-142,top+9},{right-19,top+38},IM_COL32(33,48,44,255),7);
@@ -566,7 +566,7 @@ replaceMacFile(temp,data/"game-ui.bmp");
         if(e.type==SDL_SYSWMEVENT){} // no platform window or second message loop
     }
 };
-Panel::Panel(Session& s,const std::filesystem::path& data,bool visible,bool host,const std::string& name):impl_(std::make_unique<Impl>(s,data,visible,host,name)){}
+Panel::Panel(Session& s,const std::filesystem::path& data,bool visible,bool host,const std::string& name,const std::string& code):impl_(std::make_unique<Impl>(s,data,visible,host,name,code)){}
 Panel::~Panel()=default;
 int Panel::volume() const{return impl_->gameVolume;}
 uint16_t Panel::controllerKeys(){return impl_->controllerKeys();}

@@ -8,7 +8,7 @@
 namespace fr {
 inline constexpr size_t FireRedRomSize = 16 * 1024 * 1024;
 inline constexpr uint32_t RomBase = 0x08000000;
-enum class FireRedRevision { Unsupported, FireRed_US_10, FireRed_US_11 };
+enum class FireRedRevision { Unsupported, FireRed_US_10, FireRed_US_11, LeafGreen_US_10, LeafGreen_US_11 };
 struct RomReport {
     FireRedRevision revision = FireRedRevision::Unsupported;
     size_t size = 0;

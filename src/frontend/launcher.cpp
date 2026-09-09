@@ -177,7 +177,8 @@ LRESULT Launcher::handle(UINT message, WPARAM wParam, LPARAM lParam) {
             SetForegroundWindow(window_);
             status_=code==0 ? L"World closed. Your latest checkpoint is kept by the world owner." : L"Game stopped with an error. See runtime.log in your profile folder.";
             const auto reason=dataRoot_/"world-return.txt";if(std::filesystem::exists(reason)){auto bytes=readWorldFile(reason,1024);status_=widen(std::string(bytes.begin(),bytes.end()));std::filesystem::remove(reason);}
-            page_=Page::Menu;
+            gameFailed_=code!=0;
+            page_=gameFailed_&&gameMode_==2?Page::JoinWorld:gameFailed_&&gameMode_==1?Page::HostWorld:Page::Menu;
             layout();
         }
         if (wParam == 1) {
@@ -245,7 +246,7 @@ void Launcher::layout() {
         button(Details,L"ROM details & verification",D2D1::RectF(472,240,960,287));
         button(Probe,L"Open runtime log",D2D1::RectF(472,300,960,347),false,!busy_);
         button(Fullscreen,fullscreen_ ? L"Windowed mode  /  F11" : L"Borderless fullscreen  /  F11",D2D1::RectF(472,360,960,407));
-        button(Browse,L"Change ROM & profile",D2D1::RectF(472,420,960,467),false,!busy_);
+        button(Browse,L"Change ROM",D2D1::RectF(472,420,960,467),false,!busy_);
         button(Back,L"Back to menu",D2D1::RectF(472,487,708,534),true);
         button(Updates,L"Update program",D2D1::RectF(724,487,960,534));
     }
@@ -379,7 +380,8 @@ HRESULT Launcher::drawScene(ID2D1RenderTarget* surface) {
             text(L"Your setup, at a glance.",D2D1::RectF(472,191,960,235),28,Ink,true);
             text(L"F3  Diagnostics     F11  Fullscreen",D2D1::RectF(472,556,950,588),14,Muted);
         }
-        text(status_,D2D1::RectF(42,639,873,688),13,Muted);
+        if(gameFailed_){panel(D2D1::RectF(40,627,873,690),0xFFF0E6,8);text(status_,D2D1::RectF(52,635,861,683),16,Red);}
+        else text(status_,D2D1::RectF(42,639,873,688),13,Muted);
         if (overlay_) {
             panel(D2D1::RectF(58,426,394,595),0xFFF8E9,8,Line);
             const auto revision=validated_ ? widen(revisionName(validated_->report.revision)) : L"No ROM";
@@ -485,7 +487,7 @@ void Launcher::pollValidation() {
     if (!result.error.empty() || !result.report.supported() || (!expectedHash_.empty() && expectedHash_ != result.report.sha256)) {
         const auto reason = !result.error.empty() ? result.error : !result.report.supported() ? describe(result.report)
             : "The ROM at your saved path has changed. Select it again to verify a new profile.";
-        status_ = L"ROM validation failed. Select a supported FireRed ROM.";
+        status_ = L"ROM validation failed. Select a supported FireRed or LeafGreen ROM.";
         if (!expectedHash_.empty()) { profile_.reset(); validated_.reset(); page_ = Page::Welcome; }
         expectedHash_.clear();
         layout(); error(reason); return;
@@ -590,7 +592,7 @@ void Launcher::playGame(int mode) {
     const BOOL ok=CreateProcessW(exe.c_str(),cmd.data(),nullptr,nullptr,TRUE,CREATE_NO_WINDOW,nullptr,dataRoot_.c_str(),&startup,&process);
     CloseHandle(output);if(input!=INVALID_HANDLE_VALUE)CloseHandle(input);
     if(!ok) throw std::runtime_error("Could not start Pok\xc3\xa9Multi (Windows error "+std::to_string(GetLastError())+").");
-    CloseHandle(process.hThread);gameProcess_=process.hProcess;
+    CloseHandle(process.hThread);gameProcess_=process.hProcess;gameMode_=mode;gameFailed_=false;
     log_.write("RUNTIME", "Started game: "+narrow(exe.wstring()));
     ShowWindow(window_,SW_HIDE);
     status_=L"World open. Progress checkpoints automatically; the host can save everyone from the game menu.";layout();

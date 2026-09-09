@@ -12,8 +12,8 @@ void queueFieldNotice(std::string key,std::string text){
 }
 uint32_t makeFieldNoticeScript(const std::string& message,bool releaseObjects=false){
     if(noticeAllocation)return 0;
-    const auto text=dialogueText(message,[](uint8_t glyph){return unsigned(std::clamp<int>(r8(0x08207300+(codeOffset()?0x70:0)+glyph),1,16));});
-    const auto mem=callGuest(0x08002bb0+codeOffset(),uint32_t(text.size()+16));
+    const auto text=dialogueText(message,[](uint8_t glyph){return unsigned(std::clamp<int>(r8(gameAddress(0x08207300)+glyph),1,16));});
+    const auto mem=callGuest(gameAddress(0x08002bb0),uint32_t(text.size()+16));
     if(!validRam(mem,uint32_t(text.size()+16)))return 0;
     const uint8_t script[]{0xc7,2,0x67,uint8_t(mem+16),uint8_t((mem+16)>>8),uint8_t((mem+16)>>16),uint8_t((mem+16)>>24),0x66,0x6d,uint8_t(releaseObjects?0x6b:0x68),0x02};
     for(unsigned i=0;i<sizeof(script);++i)bus()->write8(mem+i,script[i]);
@@ -25,12 +25,12 @@ bool fieldUiBusy();
 void updateFieldNotices(){
     if(noticeAllocation){
         if(now>noticeStarted+2&&safeStory()){
-            callGuest(0x08002bc4+codeOffset(),noticeAllocation);noticeAllocation=0;noticeText.clear();
+            callGuest(gameAddress(0x08002bc4),noticeAllocation);noticeAllocation=0;noticeText.clear();
         }else return;
     }
     if(fieldUiBusy())return;
     if(fieldNotices.empty()||!safeStory()||encounterToken||!pendingStory.empty()||nativeLinkScene())return;
     if(local.pixelX!=local.x*16||local.pixelY!=local.y*16)return;
     const auto script=makeFieldNoticeScript(fieldNotices.front().text);if(!script)return;
-    fieldNotices.pop_front();callGuest(0x08069ae4+codeOffset(),script);
+    fieldNotices.pop_front();callGuest(gameAddress(0x08069ae4),script);
 }

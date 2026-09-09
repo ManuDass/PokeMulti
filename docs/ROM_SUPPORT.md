@@ -1,21 +1,66 @@
 # ROM support
 
-Unmodified English FireRed US v1.0 and v1.1 are allowlisted. End-to-end gameplay validation used the owner's US v1.0 image; v1.1 has identity/layout coverage but still needs a full gameplay run.
+PokéMulti accepts unmodified English FireRed and LeafGreen US v1.0/v1.1.
+Select a `.gba` file or a ZIP containing exactly one `.gba` in the launcher.
+**Settings & ROM → Change ROM** switches cartridges. The launcher shows the matching
+cartridge color and supplied label artwork. Your online identity stays the same;
+world selection shows only worlds created with the selected ROM. Switching back
+to the original ROM restores that game's world list without migrating saves.
 
-| Revision | Header | SHA-1 |
-| --- | --- | --- |
-| US v1.0 | BPRE / 0 | 41cb23d8dccc8ebd7c649cd8fbb58eeace6e2fdc |
-| US v1.1 | BPRE / 1 | dd5945db9b930750cb39d00c84da8571feebf417 |
+## Multiplayer compatibility
 
-Identity metadata: [FireRed revision hashes](https://github.com/pret/pokefirered). SHA-1 is an exact known-image lookup; SHA-256 detects changes to the selected local ROM. Both hashes cover decompressed ROM bytes, so loading a GBA directly or from ZIP produces the same identity and save location.
+Every player in a room needs the **same game and exact ROM revision**. FireRed
+and LeafGreen rooms are separate, as are v1.0 and v1.1. The handshake checks the
+ROM SHA-256 before authenticating a world player or transferring a checkpoint.
+A mismatch returns an explanation to the launcher's join screen.
 
-Validation also requires exactly 16 MiB, the title/game code, maker code, fixed marker and header checksum. Unsupported or modified images do not unlock gameplay. There is no hash bypass, ROM downloader or unsupported-ROM execution switch.
+The editions share an engine and much of the story, but their encounter tables,
+version-specific scripts and ROM addresses differ. Shared world behavior and
+host-owned checkpoints have not been validated across editions. Native cartridge
+trading compatibility does not establish compatibility for this shared-world
+protocol. Keep application versions matched too.
 
-## ZIP loading
-The native picker, --rom argument and validator accept .gba and .zip. A ZIP must contain exactly one .gba member. Stored and Deflate compression are supported. The archive is bounded to 64 MiB, the output to 32 MiB and the directory to 1,024 entries. Encryption, split archives, ZIP64, ambiguous multiple-ROM archives, unsupported compression, corrupt CRC and inconsistent headers are rejected.
+## Hook layouts
 
-The selected member is decompressed into bounded process memory. Archive filenames are never used as extraction paths; no ROM is extracted to disk. The supplied archive stays where its owner put it.
+`src/game/rom_layout.hpp` maps each address used by our adapters separately for
+all four supported identities. There is no global relocation offset: early code,
+late code, scripts and graphics tables move by different amounts. RAM symbols
+used by these adapters have matching addresses and sizes in all four layouts.
+RAM structure offsets are shared by the matching FR/LG engine definitions.
 
-The local v1.0 ROM's SHA-256 was 3d0c79f1627022e18765766f6cb5ea067f6b5bf7dca115552189ad65a5c3a8ac. No v1.1 ROM was supplied for a real-game run.
+Only factual symbol names and addresses are included, never ROM bytes or game
+implementation. Identity hashes come from
+[pret/pokefirered](https://github.com/pret/pokefirered). Symbol facts were checked
+against the generated `.sym` files at
+[pokebot-gen3 commit 5dd898f](https://github.com/40Cakes/pokebot-gen3/tree/5dd898f830775d448b06db6f5cd65b930540f146/modules/data/symbols),
+which are built from the decompilation. Download these metadata files locally
+and run `python tools/verify_rom_layout.py --symbols PATH` to audit the mapping.
+The four filenames are `pokefirered.sym`, `pokefirered_rev1.sym`,
+`pokeleafgreen.sym` and `pokeleafgreen_rev1.sym`.
 
-LeafGreen, translations and ROM hacks require separate verified integration. No ROM, BIOS, game source, art, music or Essentials assets are included in the distributable. Never share the whole workspace, which contains private reference material and runtime caches.
+ROM-backed acceptance tests require the caller's own ROM and a local savestate
+created with that exact ROM. Never load a FireRed savestate into LeafGreen.
+ROMs, savestates, extracted assets and personal saves stay outside public builds.
+
+## Identity and archive checks
+
+| Game | Revision | Header | SHA-1 |
+| --- | --- | --- | --- |
+| FireRed | US v1.0 | BPRE / 0 | 41cb23d8dccc8ebd7c649cd8fbb58eeace6e2fdc |
+| FireRed | US v1.1 | BPRE / 1 | dd5945db9b930750cb39d00c84da8571feebf417 |
+| LeafGreen | US v1.0 | BPGE / 0 | 574fa542ffebb14be69902d1d36f1ec0a4afd71e |
+| LeafGreen | US v1.1 | BPGE / 1 | 7862c67bdecbe21d1d69ce082ce34327e1c6ed5e |
+
+Validation requires exactly 16 MiB, the corresponding title/game code, maker
+code, fixed marker, header checksum and full-image hash. Loading the same image
+as GBA or ZIP produces the same identity. There is no hash bypass.
+
+ZIP input supports Stored and Deflate compression, up to 64 MiB compressed,
+32 MiB output and 1,024 directory entries. Encryption, split archives, ZIP64,
+multiple GBA members, corrupt CRCs and inconsistent headers are rejected. The
+selected member is decompressed into bounded memory; archive filenames are
+never used as extraction paths.
+
+Real-game acceptance uses locally supplied FireRed US v1.0 and LeafGreen US
+v1.1. FireRed US v1.1 and LeafGreen US v1.0 have symbol/layout coverage but still
+need equivalent real-game acceptance. Translations and ROM hacks are unsupported.

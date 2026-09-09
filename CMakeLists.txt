@@ -43,7 +43,7 @@ if(BUILD_TESTING)
   find_program(FR_POWERSHELL powershell REQUIRED)
   add_test(NAME launcher_updates COMMAND "${FR_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/updater_tests.ps1" -Helper "${CMAKE_SOURCE_DIR}/tools/update.ps1")
 endif()
-install(FILES docs/WORLDS.md docs/MULTIPLAYER.md docs/CAMPAIGN.md docs/POKE_BALL_PLUS.md
+install(FILES docs/ROM_SUPPORT.md docs/WORLDS.md docs/MULTIPLAYER.md docs/CAMPAIGN.md docs/POKE_BALL_PLUS.md
   docs/BATTLE_PRESENTATION.md docs/RELEASED_POKEMON.md docs/UI_ASSETS.md docs/THIRD_PARTY.md DESTINATION docs)
 
 add_executable(firered_game src/runtime/game_main.cpp src/game/world.cpp)

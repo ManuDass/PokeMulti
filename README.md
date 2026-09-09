@@ -1,13 +1,13 @@
 # PokéMulti
 
-Play Pokémon FireRed together, with shared worlds, nearby trainers, friends, chat,
+Play Pokémon FireRed or LeafGreen together, with shared worlds, nearby trainers, friends, chat,
 trades, agreed battle wagers, followers and camps.
 
 **[Download PokéMulti for Windows](https://github.com/ManuDass/PokeMulti/releases/latest/download/PokeMulti-Setup.exe)**
 
 Windows 10/11, 64-bit. Open the download, choose an install folder in the wizard,
 then launch PokéMulti from your desktop or Start menu. No development tools or
-extra asset downloads are required. Supply your own unmodified English FireRed
+extra asset downloads are required. Supply your own unmodified English FireRed or LeafGreen
 US 1.0 or 1.1 ROM, either `.gba` or a ZIP containing exactly one `.gba`.
 **No ROM is included.**
 
@@ -24,8 +24,9 @@ being evaluated; the Windows executable does not run directly on macOS.
 2. Create or select a world. **Play world** continues alone; **Host world** lets
    friends join. The host chooses a room key, reward rules and 2–32 player capacity.
 3. Friends choose **Join a friend** and paste the host's invitation. Use matching
-   ROM data and application versions on every client.
-4. Play through FireRed's New Game/Continue menus as usual.
+   game, ROM revision and application versions on every client. FireRed and
+   LeafGreen use separate worlds; a mismatched ROM is refused before loading saves.
+4. Play through your game's New Game/Continue menus as usual.
 
 For internet play, the host forwards the selected **TCP port** (default 38475)
 to their PC and allows the app through Windows Firewall. **Room → Invite friends**
@@ -117,10 +118,11 @@ generated native game-code caches are excluded.
 
 ## Status and credits
 
-**0.26.2 · FRMP 19 · experimental.** FireRed US 1.0 boots, plays, saves and reloads.
+**0.26.3 · FRMP 19 · experimental.** FireRed US 1.0 and LeafGreen US 1.1
+boot, play, save and reload.
 Local two-process checks cover room play, native battles and durable trades.
-Full campaign coverage, US 1.1 gameplay and cross-PC/WAN cable timing need more
-testing. [Validation notes](docs/VALIDATION.md) describe the evidence and limits.
+Full campaign coverage, FireRed US 1.1/LeafGreen US 1.0 gameplay and
+cross-PC/WAN cable timing need more testing. [Validation notes](docs/VALIDATION.md) describe the evidence and limits.
 
 Original 2D rendering is used throughout. The experimental voxel/paper mode has
 been removed. Supplied fonts, chat tiles, follower sheets, camp frames and UI art

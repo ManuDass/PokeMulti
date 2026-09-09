@@ -1,8 +1,9 @@
 #pragma once
 #include <cstdint>
+#include "game/rom_layout.hpp"
 namespace fr::game {
 struct UniquePokemon {uint32_t script;uint16_t claimed,hide,otherHide;bool gift;const char* name;};
-// Original encounter scripts: US 1.1 entries are each exactly +0x78.
+// Canonical FireRed 1.0 scripts; the selected cartridge supplies each address.
 inline constexpr UniquePokemon uniquePokemon[]{
  {0x08161ac8,0x246,0,0,true,"Lapras"},
  {0x0816c46d,0x263,0x57,0,true,"Eevee"},
@@ -22,5 +23,6 @@ inline constexpr UniquePokemon uniquePokemon[]{
 };
 inline const UniquePokemon* uniqueClaim(uint16_t flag){for(const auto& r:uniquePokemon)if(r.claimed==flag)return &r;return nullptr;}
 inline const UniquePokemon* uniqueScript(uint32_t script,bool revision11){for(const auto& r:uniquePokemon)if(r.script+(revision11?0x78u:0u)==script)return &r;return nullptr;}
+inline const UniquePokemon* uniqueScript(uint32_t script,FireRedRevision revision){for(const auto& r:uniquePokemon)if(romAddress(revision,r.script)==script)return &r;return nullptr;}
 inline bool uniqueFlag(uint16_t flag){for(const auto& r:uniquePokemon)if(flag==r.claimed||(r.hide&&flag==r.hide)||(r.otherHide&&flag==r.otherHide))return true;return false;}
 }

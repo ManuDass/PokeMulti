@@ -16,3 +16,8 @@ Native multiplayer checks exercise dedicated harness fixtures and may need a
 locally prepared test checkpoint. Run unit and room-protocol checks with CTest
 first; those require no ROM. Historical one-off probes and export tooling are
 kept only in the maintainer's local recovery archive.
+
+For LeafGreen, create a disposable field savestate by starting a new game with
+that exact ROM. Pass `--state PATH` to the world, field-battle, camp and story-retry
+checks. Their legacy default fixture is FireRed US v1.0; it must not be used with
+a different cartridge. The launcher smoke check requires only a ROM.

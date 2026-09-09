@@ -1,8 +1,9 @@
 """Original Route 22 rival loss, friend takeover, and completion on private saves."""
 from pathlib import Path
+from native_fixture import local_field_state
 import argparse, os, re, socket, subprocess, time, uuid, shutil, threading
 from PIL import Image
-ap=argparse.ArgumentParser();ap.add_argument('--rom',required=True);ap.add_argument('--configuration',default='Release-0.24.0');ap.add_argument('--departures',action='store_true');args=ap.parse_args()
+ap=argparse.ArgumentParser();ap.add_argument('--rom',required=True);ap.add_argument('--configuration',default='Release-0.24.0');ap.add_argument('--departures',action='store_true');ap.add_argument('--state',type=Path,help='Local field savestate made with this exact ROM');args=ap.parse_args()
 root=Path(__file__).resolve().parents[2];base=root/'cache'/('story-retry-'+uuid.uuid4().hex[:12]);base.mkdir();processes=[]
 s=socket.socket();s.bind(('127.0.0.1',0));port=s.getsockname()[1];s.close()
 def read(role,file='story-retry-check.txt'):
@@ -45,6 +46,7 @@ def press_until(role,predicate,why,steps=180):
   key(role,settle=40)
   if step%30==0:print(why,step,read(role).strip(),flush=True)
  raise RuntimeError(why+'\n'+read(role))
+state=local_field_state(root,Path(args.rom).resolve(),args.state)
 print('Evidence: '+str(base),flush=True)
 departure_samples=[];watch_done=threading.Event()
 def watch_departure():
@@ -66,7 +68,7 @@ watcher=threading.Thread(target=watch_departure,daemon=True)
 try:
  for role in ['a','b']:
   folder=base/role;folder.mkdir();(folder/'test-keys.txt').write_text('1 0x3ff 6000\n');log=(folder/'runtime.log').open('w')
-  cmd=[str(root/'build'/args.configuration/'fr_game_harness.exe'),'--rom',str(Path(args.rom).resolve()),'--save',str(folder/'test.sav'),'--profile-dir',str(folder),'--name','Aster' if role=='a' else 'Leaf','--window','--test-ui','--test-report','--test-manual','--test-'+('host' if role=='a' else 'join'),str(port),'--load-state',str(root/'cache/runtime-check/cable-a.state'),'--fixture','campaign-retry-'+role,'--frames','100000']
+  cmd=[str(root/'build'/args.configuration/'fr_game_harness.exe'),'--rom',str(Path(args.rom).resolve()),'--save',str(folder/'test.sav'),'--profile-dir',str(folder),'--name','Aster' if role=='a' else 'Leaf','--window','--test-ui','--test-report','--test-manual','--test-'+('host' if role=='a' else 'join'),str(port),'--load-state',str(state),'--fixture','campaign-retry-'+role,'--frames','100000']
   processes.append(subprocess.Popen(cmd,cwd=root,stdout=log,stderr=log,env=dict(os.environ,SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy'),creationflags=subprocess.CREATE_NO_WINDOW))
   if role=='a':wait(lambda:safe('a'),'Host boot',150)
  wait(lambda:all(safe(r) and 'applied=1' in read(r,'shared-world.txt') for r in ['a','b']),'Shared field ready',150)

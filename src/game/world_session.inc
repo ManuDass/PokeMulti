@@ -41,7 +41,7 @@ void updateWorldSession(){
     const bool safe=fieldSafe&&local.pixelX%16==0&&local.pixelY%16==0&&!fieldUiBusy()&&!noticeAllocation&&!encounterToken&&!walletPendingSave&&!campaignSaving&&pendingReleases.empty()&&!room->cableConnected();
     if(worldSaveRequested&&safe){
         prepareNativeFieldSave();
-        if(callGuest(0x080da364+codeOffset(),0,0,0,0,0,20000000)!=1)throw std::runtime_error("World checkpoint failed; progress remains in memory.");
+        if(callGuest(gameAddress(0x080da364),0,0,0,0,0,20000000)!=1)throw std::runtime_error("World checkpoint failed; progress remains in memory.");
         worldSaveRequested=false;nextFlashCheck=now+2;
     }
     if(now<nextFlashCheck||bus()->save().dirty()||walletPendingSave||campaignSaving)return;
@@ -73,6 +73,6 @@ void drawDepartures(uint8_t* rgb,unsigned w,unsigned h,int dx,int dy){
 }
 void registerWorldSessionHooks(){
     for(const auto& entry:std::vector<std::pair<uint32_t,decltype(&departureHook)>>{{0x080842e8,departureHook},{0x08085620,departureHook},{0x08085b64,departureHook},{0x0807e500,departureHook},{0x080da364,checkpointSaveHook}}){
-        const auto key="pokemulti.world-session-"+std::to_string(entry.first);gba_mod_register_function_entry_plugin(key.c_str(),entry.first+codeOffset(),1,entry.second);gba_mod_set_function_hook_enabled(key.c_str(),1);
+        const auto key="pokemulti.world-session-"+std::to_string(entry.first);gba_mod_register_function_entry_plugin(key.c_str(),gameAddress(entry.first),1,entry.second);gba_mod_set_function_hook_enabled(key.c_str(),1);
     }
 }

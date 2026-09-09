@@ -58,7 +58,7 @@ int runStoryGate(uint32_t address,ArmCpuState* cpu){
     gateWaitEvent=event;gateWaitGroup=local.mapGroup;gateWaitMap=local.mapNumber;
     gateWaitStarted=now;gateRetryAt=now+20;++gateDeferred;
     if(!gateWaitAllocation){
-        gateWaitAllocation=callGuest(0x08002bb0+codeOffset(),9);
+        gateWaitAllocation=callGuest(gameAddress(0x08002bb0),9);
         if(!validRam(gateWaitAllocation,9)){gateWaitAllocation=0;gateStep={};return guestReturn(cpu,0);}
         bus()->write8(gateWaitAllocation,0x28);bus()->write16(gateWaitAllocation+1,1);
         bus()->write8(gateWaitAllocation+3,0x05);bus()->write32(gateWaitAllocation+4,gateWaitAllocation);
@@ -78,7 +78,7 @@ void updateStoryGates(){
         gateRetryAt=now+20;
         if(local.mapGroup!=gateWaitGroup||local.mapNumber!=gateWaitMap||!(roomState.connected?activeStoryGate(gateWaitEvent,true):activeStoryGate(gateWaitEvent,false)))gateWaitEvent=0;
         else if(!roomState.connected||claimStoryGate(gateWaitEvent)){
-            const auto script=r32(gateWaitEvent+12);gateWaitEvent=0;encounterBegan=now;callGuest(0x08069ae4+codeOffset(),script);
+            const auto script=r32(gateWaitEvent+12);gateWaitEvent=0;encounterBegan=now;callGuest(gameAddress(0x08069ae4),script);
         }
     }
     if(gateWaitAllocation){
@@ -90,7 +90,7 @@ void updateStoryGates(){
             if(next){bus()->write32(gateWaitAllocation+4,next);gateWaitEvent=0;encounterBegan=now;}
         }
         if(!gateWaitEvent&&now>gateWaitStarted+2&&safeStory()){
-            callGuest(0x08002bc4+codeOffset(),gateWaitAllocation);gateWaitAllocation=0;
+            callGuest(gameAddress(0x08002bc4),gateWaitAllocation);gateWaitAllocation=0;
         }
     }
 #ifdef FR_TEST_HARNESS

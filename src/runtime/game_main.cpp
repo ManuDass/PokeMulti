@@ -278,7 +278,7 @@ int gameMain(int argc, wchar_t** argv) {
 #ifdef FR_TEST_HARNESS
         if(testLink&&!testUi)showPanel=false;
 #endif
-        if(showPanel)panel=std::make_unique<fr::online::Panel>(online,identityPath,!onlineMode.empty(),onlineMode=="host"&&worldPath.empty(),trainerName);
+        if(showPanel)panel=std::make_unique<fr::online::Panel>(online,identityPath,!onlineMode.empty(),onlineMode=="host"&&worldPath.empty(),trainerName,report.gameCode);
         activePanel=panel.get();
 #ifdef FR_TEST_HARNESS
         testProfile=profilePath;
@@ -316,7 +316,13 @@ int gameMain(int argc, wchar_t** argv) {
         if(worldDisconnected){const std::string notice="Connection to the host ended. Your latest checkpoint is kept in the host world.";fr::atomicWorldFile(identityPath/"world-return.txt",{reinterpret_cast<const uint8_t*>(notice.data()),notice.size()});}
         return result;
     } catch (const std::exception& error) {
-        std::cerr<<"PokeMulti runtime: "<<error.what()<<'\n'; return 1;
+        std::cerr<<"PokeMulti runtime: "<<error.what()<<'\n';
+        // Return startup failures to the launcher, including failed room joins.
+        if(!launcherRoot.empty())try{
+            const auto message=std::string(error.what()).substr(0,900);
+            fr::atomicWorldFile(launcherRoot/"world-return.txt",{reinterpret_cast<const uint8_t*>(message.data()),message.size()});
+        }catch(...){ }
+        return 1;
     }
 }
 

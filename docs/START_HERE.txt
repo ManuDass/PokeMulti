@@ -1,16 +1,16 @@
-POKEMULTI 0.26.2 - WINDOWS 10/11, 64-BIT
+POKEMULTI 0.26.3 - WINDOWS 10/11, 64-BIT
 
 1. Run PokeMulti-Setup.exe from the GitHub release and choose an install folder.
    Portable alternative: extract the entire versioned ZIP into a folder.
 2. Open the installed shortcut, or double-click pokemulti.exe.
-3. Select your own unmodified English FireRed US 1.0 or US 1.1 ROM.
+3. Select your own unmodified English FireRed or LeafGreen US 1.0 or US 1.1 ROM.
    A .gba file or a ZIP containing exactly one .gba is supported.
    No ROM is included. No compiler, Visual Studio or extra asset download is needed.
-4. Choose your online username. FireRed asks for its narrative name separately.
+4. Choose your online username. Your game asks for its narrative name separately.
 
 TO JOIN YOUR FRIEND
 Choose Join a friend, then Paste invite (or enter the host's IPv4, port and
-room key). Everyone must use this application version and matching ROM data.
+room key). Everyone must use this application version and the same game and ROM revision.
 Your trainer's progress for that world is kept by its host. If the host leaves,
 you return to the launcher; reconnect to resume your last completed checkpoint.
 
@@ -45,7 +45,7 @@ More detail: docs\WORLDS.md and docs\MULTIPLAYER.md.
 Original supplied artwork, fonts, credits and dependency notices are included.
 
 NAME CHANGES AND UPDATES
-Edit username in the launcher changes your online label, not your in-game
+Edit beside your username in the launcher changes your online label, not your in-game
 trainer name or saved progress. Update program > Check for updates downloads
 future stable releases from GitHub. Close other sessions before updating.
 Users of 0.25.0 or earlier need this version once to obtain the updater.

@@ -73,7 +73,7 @@ WorldInfo createWorld(const std::filesystem::path& root,const std::string& name,
     WorldInfo w{worldRandomId(),name,hash,{}};w.folder=root/"worlds"/w.id;std::ostringstream out;out<<"PMWORLD1 "<<std::quoted(w.id)<<' '<<std::quoted(name)<<' '<<std::quoted(hash)<<'\n';const auto text=out.str();atomicWorldFile(w.folder/"world.cfg",{reinterpret_cast<const uint8_t*>(text.data()),text.size()});return w;
 }
 std::vector<uint8_t> captureCheckpoint(const std::filesystem::path& runtime,std::span<const uint8_t> flash){
-    if(flash.size()!=131072)throw std::runtime_error("A world checkpoint requires a complete FireRed flash save.");
+    if(flash.size()!=131072)throw std::runtime_error("A world checkpoint requires a complete FireRed/LeafGreen flash save.");
     std::vector<uint8_t> out{'P','M','W','O','R','L','D','1'};put(out,uint32_t(flash.size()));out.insert(out.end(),flash.begin(),flash.end());
     for(unsigned i=1;i<files.size();++i){const auto bytes=readWorldFile(runtime/files[i],limits[i]);put(out,uint32_t(bytes.size()));out.insert(out.end(),bytes.begin(),bytes.end());}
     const auto hash=digest(out);out.insert(out.end(),hash.begin(),hash.end());return out;

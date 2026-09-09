@@ -24,7 +24,7 @@ void loadReleases(){if(releasesLoaded||!room)return;releasesLoaded=true;soloRele
     std::ifstream battle(diagnosticPath.parent_path()/"released-battle.cfg");if(battle>>line){battle>>releaseBattleId>>releaseBattleHost>>releaseBattleCaught;if(!battle||line!="PMRELEASEBATTLE1")throw std::runtime_error("Invalid released battle receipt");if(releaseBattleId=="-")releaseBattleId.clear();if(releaseBattleHost=="-")releaseBattleHost.clear();}
 }
 uint32_t releaseHeader(uint8_t group,uint8_t number){
-    if(group>=43)return 0;const auto groups=0x083526a8+(codeOffset()?0x70u:0u),list=r32(groups+4*group),end=group==42?groups:r32(groups+4*(group+1));
+    if(group>=43)return 0;const auto groups=gameAddress(0x083526a8),list=r32(groups+4*group),end=group==42?groups:r32(groups+4*(group+1));
     if(!validRom(list,4)||end<list||end-list>512||number>=(end-list)/4)return 0;const auto header=r32(list+4*number);return validRom(header,28)?header:0;
 }
 const ReleaseMap* releaseMap(uint8_t group,uint8_t number){
@@ -51,20 +51,20 @@ ReleasedPokemon captureReleasePokemon(uint32_t mon){
     ReleasedPokemon p;if(!validRam(mon,80))return p;
     p.personality=r32(mon);p.trainerId=r32(mon+4);p.language=r8(mon+18);p.markings=r8(mon+27);for(unsigned i=0;i<10;++i)p.nickname[i]=r8(mon+8+i);for(unsigned i=0;i<7;++i)p.trainerName[i]=r8(mon+20+i);
     std::array<std::array<uint8_t,12>,4> data{};uint16_t checksum=0;
-    for(unsigned g=0;g<4;++g){const auto ptr=callGuest(0x0803f940+codeOffset(),mon,p.personality,g);if(ptr<mon+32||ptr>mon+68||(ptr-mon-32)%12)return {};
+    for(unsigned g=0;g<4;++g){const auto ptr=callGuest(gameAddress(0x0803f940),mon,p.personality,g);if(ptr<mon+32||ptr>mon+68||(ptr-mon-32)%12)return {};
         for(unsigned j=0;j<3;++j){const auto v=r32(ptr+j*4)^p.personality^p.trainerId;checksum=uint16_t(checksum+(v&65535)+(v>>16));for(unsigned k=0;k<4;++k)data[g][j*4+k]=uint8_t(v>>(8*k));}}
     if(checksum!=r16(mon+28)||(r8(mon+19)&5))return {};
     auto u16=[&](unsigned g,unsigned o){return uint16_t(data[g][o]|data[g][o+1]<<8);};auto u32=[&](unsigned g,unsigned o){return uint32_t(u16(g,o))|(uint32_t(u16(g,o+2))<<16);};
     p.species=u16(0,0);p.item=u16(0,2);p.experience=u32(0,4);p.ppBonuses=data[0][8];p.friendship=data[0][9];for(unsigned i=0;i<4;++i){p.moves[i]=u16(1,2*i);p.pp[i]=data[1][8+i];}for(unsigned i=0;i<6;++i){p.ev[i]=data[2][i];p.condition[i]=data[2][i+6];}
-    p.virus=data[3][0];p.metLocation=data[3][1];p.origins=u16(3,2);p.ivs=u32(3,4);p.ribbons=u32(3,8);p.level=uint8_t(callGuest(0x0803e830+codeOffset(),mon));return p;
+    p.virus=data[3][0];p.metLocation=data[3][1];p.origins=u16(3,2);p.ivs=u32(3,4);p.ribbons=u32(3,8);p.level=uint8_t(callGuest(gameAddress(0x0803e830),mon));return p;
 }
 void installReleasedEnemy(const ReleasedPokemon& p){
     callGuest(addresses.createWild,p.species,p.level,0);const uint32_t mon=0x0202402c;const uint32_t key=p.personality^p.trainerId;
     bus()->write32(mon,p.personality);bus()->write32(mon+4,p.trainerId);for(unsigned i=0;i<10;++i)bus()->write8(mon+8+i,p.nickname[i]);bus()->write8(mon+18,p.language);bus()->write8(mon+19,2);for(unsigned i=0;i<7;++i)bus()->write8(mon+20+i,p.trainerName[i]);bus()->write8(mon+27,p.markings);bus()->write16(mon+30,0);
     std::array<std::array<uint8_t,12>,4> data{};auto w16=[&](unsigned g,unsigned o,uint16_t v){data[g][o]=uint8_t(v);data[g][o+1]=uint8_t(v>>8);};auto w32=[&](unsigned g,unsigned o,uint32_t v){w16(g,o,uint16_t(v));w16(g,o+2,uint16_t(v>>16));};
-    w16(0,0,p.species);w16(0,2,p.item);w32(0,4,p.experience);data[0][8]=p.ppBonuses;data[0][9]=p.friendship;for(unsigned i=0;i<4;++i){w16(1,2*i,p.moves[i]);const unsigned base=p.moves[i]?r8(0x08250c04+(codeOffset()?0x70u:0u)+12*p.moves[i]+4):0;data[1][i+8]=uint8_t(base+base*((p.ppBonuses>>(2*i))&3)/5);}for(unsigned i=0;i<6;++i){data[2][i]=p.ev[i];data[2][i+6]=p.condition[i];}data[3][0]=p.virus;data[3][1]=p.metLocation;w16(3,2,p.origins);w32(3,4,p.ivs);w32(3,8,p.ribbons);
-    uint16_t checksum=0;for(unsigned g=0;g<4;++g){const auto ptr=callGuest(0x0803f940+codeOffset(),mon,p.personality,g);if(ptr<mon+32||ptr>mon+68)throw std::runtime_error("Invalid native Pokemon layout");for(unsigned j=0;j<3;++j){uint32_t v=0;for(unsigned k=0;k<4;++k)v|=uint32_t(data[g][j*4+k])<<(k*8);checksum=uint16_t(checksum+(v&65535)+(v>>16));bus()->write32(ptr+4*j,v^key);}}
-    bus()->write16(mon+28,checksum);callGuest(0x0803e774+codeOffset(),mon,mon); // Native BoxMonToMon heals and recalculates stats.
+    w16(0,0,p.species);w16(0,2,p.item);w32(0,4,p.experience);data[0][8]=p.ppBonuses;data[0][9]=p.friendship;for(unsigned i=0;i<4;++i){w16(1,2*i,p.moves[i]);const unsigned base=p.moves[i]?r8(gameAddress(0x08250c04)+12*p.moves[i]+4):0;data[1][i+8]=uint8_t(base+base*((p.ppBonuses>>(2*i))&3)/5);}for(unsigned i=0;i<6;++i){data[2][i]=p.ev[i];data[2][i+6]=p.condition[i];}data[3][0]=p.virus;data[3][1]=p.metLocation;w16(3,2,p.origins);w32(3,4,p.ivs);w32(3,8,p.ribbons);
+    uint16_t checksum=0;for(unsigned g=0;g<4;++g){const auto ptr=callGuest(gameAddress(0x0803f940),mon,p.personality,g);if(ptr<mon+32||ptr>mon+68)throw std::runtime_error("Invalid native Pokemon layout");for(unsigned j=0;j<3;++j){uint32_t v=0;for(unsigned k=0;k<4;++k)v|=uint32_t(data[g][j*4+k])<<(k*8);checksum=uint16_t(checksum+(v&65535)+(v>>16));bus()->write32(ptr+4*j,v^key);}}
+    bus()->write16(mon+28,checksum);callGuest(gameAddress(0x0803e774),mon,mon); // Native BoxMonToMon heals and recalculates stats.
 }
 bool stillOwnReleased(const ReleasedPokemon& p,bool recaptured=false){
     auto matches=[&](uint32_t m){if(!validRam(m,80)||r32(m)!=p.personality||!(r8(m+19)&2))return false;return recaptured?sameReleasedIndividual(captureReleasePokemon(m),p):r32(m+4)==p.trainerId;};
@@ -75,7 +75,7 @@ int releaseMonHook(uint32_t address,int,ArmCpuState* cpu){
     const unsigned slot=r8(0x02039821);uint32_t mon=0;
     if(r8(0x02039822))mon=storage+0x20a0;
     else if(r8(0x02039820)==1&&slot<6)mon=0x02024284+100*slot;
-    else if(r8(0x02039820)==0&&slot<30)mon=callGuest(0x0808bd30+codeOffset(),callGuest(0x0808b9f4+codeOffset()),slot);
+    else if(r8(0x02039820)==0&&slot<30)mon=callGuest(gameAddress(0x0808bd30),callGuest(gameAddress(0x0808b9f4)),slot);
     auto pokemon=captureReleasePokemon(mon);if(!validReleasedPokemon(pokemon))throw std::runtime_error("The released Pokemon could not be preserved; release was stopped.");
     ReleasedMon m;m.id=online::randomId();m.owner=room->id();m.pokemon=pokemon;m.origin=m.position=m.entrance=releasePoint(lastReleaseField);m.pixelX=int16_t(m.position.x*16);m.pixelY=int16_t(m.position.y*16);m.facing=lastReleaseField.facing;
     pendingReleases.push_back({m,0});storePendingReleases(); // Before the native confirmed deletion; rollback is detected on recovery.
@@ -144,7 +144,7 @@ void saveReleaseGame(){
     // Match the original save dialog's preparation. TrySavingData serializes
     // party/objects, but does not refresh the field's saved tile window itself.
     prepareNativeFieldSave();
-    if(callGuest(0x080da364+codeOffset(),0,0,0,0,0,20000000)!=1)throw std::runtime_error("Could not save the Pokemon release transaction");
+    if(callGuest(gameAddress(0x080da364),0,0,0,0,0,20000000)!=1)throw std::runtime_error("Could not save the Pokemon release transaction");
 }
 void updateReleases(){
     if(!room||!bus())return;loadReleases();if(local.active&&!replaying())lastReleaseField=local;
@@ -154,7 +154,7 @@ void updateReleases(){
         saveReleaseGame();releaseSaving=true;return;}
     if(now>=lastReleaseRetry+60){lastReleaseRetry=now;for(auto i=pendingReleases.begin();i!=pendingReleases.end();){if(!i->saved){++i;continue;}const bool accepted=roomState.connected?room->offerReleased(i->mon):soloReleases.offer(i->mon);if(accepted){i=pendingReleases.erase(i);storePendingReleases();}else{releaseMessage="Released Pokemon is waiting for the room to accept it.";++i;}}}
     if(!releaseBattleId.empty()){
-        const bool battle=(r32(0x030030f4)&~1u)==0x08011100+codeOffset();releaseBattleEntered|=battle;
+        const bool battle=(r32(0x030030f4)&~1u)==gameAddress(0x08011100);releaseBattleEntered|=battle;
         if(battle&&(r8(0x02023e8a)&0x7f)==7&&!releaseBattleCaught){releaseBattleCaught=true;storeReleaseBattle();}
         if(safeWallet()&&(!releaseBattleStart||releaseBattleEntered||now>releaseBattleStart+300)){
             const auto population=releasePopulation();const auto found=std::find_if(population.begin(),population.end(),[](const auto& m){return m.id==releaseBattleId;});
@@ -177,11 +177,11 @@ void updateReleases(){
     }
     population=releasePopulation();if(roomState.connected&&roomState.hosting)population=room->status().released;
     for(const auto& m:population){PlayerState p;p.active=m.phase!=ReleasePhase::Queued&&m.phase!=ReleasePhase::Battle&&m.phase!=ReleasePhase::Caught;p.mapGroup=m.position.group;p.mapNumber=m.position.map;p.elevation=m.position.elevation;p.x=m.position.x;p.y=m.position.y;p.pixelX=m.pixelX;p.pixelY=m.pixelY;p.follower=m.pokemon.species;p.followerFacing=m.facing;p.followerFrame=m.frame;p.sequence=m.revision;p.sampleTime=uint32_t(clockMs());p.identity=std::stoull(m.id.substr(0,16),nullptr,16);
-        if(m.phase==ReleasePhase::Hello||m.phase==ReleasePhase::Goodbye){p.offsetY=int8_t(-std::max(0,8-std::abs(18-int(m.tick))*8/18));const unsigned phase=unsigned(m.phase);if(m.tick<30&&heardRelease[m.id]!=phase&&sameScene(local,p)){callGuest(0x08071df0+codeOffset(),m.pokemon.species,0);heardRelease[m.id]=phase;}}
+        if(m.phase==ReleasePhase::Hello||m.phase==ReleasePhase::Goodbye){p.offsetY=int8_t(-std::max(0,8-std::abs(18-int(m.tick))*8/18));const unsigned phase=unsigned(m.phase);if(m.tick<30&&heardRelease[m.id]!=phase&&sameScene(local,p)){callGuest(gameAddress(0x08071df0),m.pokemon.species,0);heardRelease[m.id]=phase;}}
         releaseMotion[m.id].push(p,clockMs());
     }
 #ifdef FR_TEST_HARNESS
-    if(now%30<6){std::ofstream f(diagnosticPath.parent_path()/"released-check.txt");f<<"frame="<<now<<" pending="<<pendingReleases.size()<<" saving="<<releaseSaving<<" battle="<<releaseBattleId<<" native="<<std::hex<<(r32(0x030030f4)&~1u)<<std::dec<<'\n';for(const auto& m:population)f<<"released="<<m.id<<" species="<<m.pokemon.species<<" pid="<<m.pokemon.personality<<" phase="<<unsigned(m.phase)<<" map="<<unsigned(m.position.group)<<','<<unsigned(m.position.map)<<" tile="<<m.position.x<<','<<m.position.y<<" pixel="<<m.pixelX<<','<<m.pixelY<<" face="<<unsigned(m.facing)<<" anim="<<unsigned(m.frame)<<" tick="<<m.tick<<" outside="<<m.ownerOutside<<'\n';f<<releaseMessage<<'\n';const auto st=r32(0x020397b0);if(validRam(st,0x2200))f<<"storage_state="<<unsigned(r8(st))<<" cursor="<<unsigned(r8(0x02039820))<<','<<unsigned(r8(0x02039821))<<'\n';f<<"native_enemy_species="<<callGuest(0x0803fbe8+codeOffset(),0x0202402c,11)<<" native_enemy_pid="<<r32(0x0202402c)<<'\n';}
+    if(now%30<6){std::ofstream f(diagnosticPath.parent_path()/"released-check.txt");f<<"frame="<<now<<" pending="<<pendingReleases.size()<<" saving="<<releaseSaving<<" battle="<<releaseBattleId<<" native="<<std::hex<<(r32(0x030030f4)&~1u)<<std::dec<<'\n';for(const auto& m:population)f<<"released="<<m.id<<" species="<<m.pokemon.species<<" pid="<<m.pokemon.personality<<" phase="<<unsigned(m.phase)<<" map="<<unsigned(m.position.group)<<','<<unsigned(m.position.map)<<" tile="<<m.position.x<<','<<m.position.y<<" pixel="<<m.pixelX<<','<<m.pixelY<<" face="<<unsigned(m.facing)<<" anim="<<unsigned(m.frame)<<" tick="<<m.tick<<" outside="<<m.ownerOutside<<'\n';f<<releaseMessage<<'\n';const auto st=r32(0x020397b0);if(validRam(st,0x2200))f<<"storage_state="<<unsigned(r8(st))<<" cursor="<<unsigned(r8(0x02039820))<<','<<unsigned(r8(0x02039821))<<'\n';f<<"native_enemy_species="<<callGuest(gameAddress(0x0803fbe8),0x0202402c,11)<<" native_enemy_pid="<<r32(0x0202402c)<<'\n';}
 #endif
 }
 bool releasedEncounter(const PlayerState& p){

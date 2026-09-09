@@ -16,7 +16,7 @@ bool nearbyTrainer(const PlayerState& a,const PlayerState& b){return sameScene(a
 const online::Peer* fieldPeer(const std::string& id){for(const auto& p:roomState.peers)if(p.id==id&&p.slot!=roomSlot)return &p;return nullptr;}
 bool usableFieldParty(){
     const auto count=r8(0x02024029);if(!count||count>6)return false;
-    for(unsigned i=0;i<count;++i){const auto p=0x02024284+100*i;if(callGuest(0x0803fbe8+codeOffset(),p,11,0)&&!callGuest(0x0803fbe8+codeOffset(),p,45,0)&&r16(p+86))return true;}
+    for(unsigned i=0;i<count;++i){const auto p=0x02024284+100*i;if(callGuest(gameAddress(0x0803fbe8),p,11,0)&&!callGuest(gameAddress(0x0803fbe8),p,45,0)&&r16(p+86))return true;}
     return false;
 }
 uint32_t writeFieldText(uint32_t at,const std::string& text){
@@ -26,7 +26,7 @@ uint32_t openFieldPrompt(FieldPrompt prompt,const std::string& message,std::vect
     if(fieldDialog.memory||noticeAllocation)return 0;
     const auto memory=callGuest(fieldSymbol("AllocZeroed"),4096);if(!validRam(memory,4096))return 0;
     fieldDialog.memory=memory;fieldDialog.prompt=prompt;fieldDialog.choices=std::move(choices);fieldDialog.began=now;fieldDialog.amountWindow=fieldDialog.choiceWindow=-1;
-    const auto text=dialogueText(message,[](uint8_t glyph){return unsigned(std::clamp<int>(r8(0x08207300+(codeOffset()?0x70:0)+glyph),1,16));});
+    const auto text=dialogueText(message,[](uint8_t glyph){return unsigned(std::clamp<int>(r8(gameAddress(0x08207300)+glyph),1,16));});
     for(unsigned i=0;i<text.size();++i)bus()->write8(memory+32+i,text[i]);
     const uint32_t ptr=memory+32;const uint8_t script[]{0x69,0xc7,2,0x67,uint8_t(ptr),uint8_t(ptr>>8),uint8_t(ptr>>16),uint8_t(ptr>>24),0x66,0x6f,17,1,uint8_t(prompt==FieldPrompt::Amount?254:255),0,0x6b,0x02};
     for(unsigned i=0;i<sizeof(script);++i)bus()->write8(memory+i,script[i]);

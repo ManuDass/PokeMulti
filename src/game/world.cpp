@@ -1,4 +1,5 @@
 #include "game/world.hpp"
+#include "game/rom_layout.hpp"
 #include "frontend/world_store.hpp"
 #include "game/dialogue.hpp"
 #include "game/wager_result.hpp"
@@ -35,11 +36,13 @@
 namespace fr::game {
 namespace {
 // Factual symbol addresses, restricted to the exact SHA-1 identities in rom.cpp.
-// Layout evidence and provenance are recorded in docs/GAME_HOOKS.md.
+// Layout evidence and provenance are recorded in docs/ROM_SUPPORT.md.
 struct Addresses {
     uint32_t overworld,icons,iconIndices,iconPalettes,wild,graphics,palettes,encounter,createWild,startWild,repel;
 };
 Addresses addresses{};
+FireRedRevision gameRevision=FireRedRevision::Unsupported;
+uint32_t gameAddress(uint32_t canonical){return romAddress(gameRevision,canonical);}
 PlayerState local{},previous{},completedPlayer{};
 int completedOriginX=0,completedOriginY=0,completedOffsetX=0,completedOffsetY=0;
 uint8_t completedAvatarFlags=0;
@@ -322,7 +325,7 @@ uint8_t partyEggMask(uint8_t count){
     for(unsigned i=0;i<6;++i){auto& cached=slots[i];if(i>=count){cached.valid=false;continue;}
         const auto mon=0x02024284+i*100;
         const std::array<uint32_t,4> key{r32(mon),r32(mon+4),r32(mon+16),r32(mon+28)};
-        if(!cached.valid||cached.key!=key){cached.egg=callGuest(0x0803fbe8+addresses.overworld-0x080565b4,mon,45)!=0;cached.key=key;cached.valid=true;}
+        if(!cached.valid||cached.key!=key){cached.egg=callGuest(gameAddress(0x0803fbe8),mon,45)!=0;cached.key=key;cached.valid=true;}
         if(cached.egg)mask|=uint8_t(1u<<i);
     }
     return mask;
@@ -380,7 +383,6 @@ void driveTestInput(){
 int fixtureHook(uint32_t,int,ArmCpuState*){
     if(fixtureRequest.empty()||guestCall)return 0;
     const auto fixture=fixtureRequest;fixtureRequest.clear();
-    const uint32_t code=addresses.overworld-0x080565b4;
     const auto save2=r32(0x0300500c);
     if(validRam(save2,16)){
         const std::string name=(fixture=="cable-b"||fixture=="wager-b"||fixture=="field-b"||fixture=="field-center-b")?"TEST B":"TEST A";
@@ -393,19 +395,19 @@ int fixtureHook(uint32_t,int,ArmCpuState*){
     callGuest(addresses.createWild,(fixture=="cable-b"||fixture=="wager-b"||fixture=="field-b"||fixture=="field-center-b")?19:16,10,0);
     for(unsigned i=0;i<100;++i)bus()->write8(0x02024284+100+i,r8(0x0202402c+i));
     bus()->write8(0x02024029,2);
-    callGuest(0x0806e680+code,2088);callGuest(0x0806e680+code,2089);
+    callGuest(gameAddress(0x0806e680),2088);callGuest(gameAddress(0x0806e680),2089);
     if(fixture.starts_with("wager")||fixture.starts_with("field-")){
         callGuest(addresses.createWild,1,(fixture=="wager-a"||fixture=="field-a"||fixture=="field-center-a")?50:5,0);
         for(unsigned i=0;i<100;++i)bus()->write8(0x02024284+i,r8(0x0202402c+i));
         for(unsigned i=100;i<600;++i)bus()->write8(0x02024284+i,0);
         bus()->write8(0x02024029,1);
-        callGuest(0x0803e964+code,0x02024284,33,0); // Native SetMonMoveSlot: Tackle.
-        callGuest(0x0809fd70+code,r32(0x03005008)+0x290,3000);
+        callGuest(gameAddress(0x0803e964),0x02024284,33,0); // Native SetMonMoveSlot: Tackle.
+        callGuest(gameAddress(0x0809fd70),r32(0x03005008)+0x290,3000);
     }
     if(fixture=="spectate"){
         callGuest(addresses.createWild,1,5,0);for(unsigned i=0;i<100;++i)bus()->write8(0x02024284+i,r8(0x0202402c+i));
         bus()->write16(0x02024284+86,1); // Synthetic fixture: native damage will cause the faint.
-        callGuest(0x0803e964+code,0x02024284,150,0);for(unsigned i=1;i<4;++i)callGuest(0x0803e964+code,0x02024284,0,i);
+        callGuest(gameAddress(0x0803e964),0x02024284,150,0);for(unsigned i=1;i<4;++i)callGuest(gameAddress(0x0803e964),0x02024284,0,i);
         callGuest(addresses.createWild,4,25,0);for(unsigned i=0;i<100;++i)bus()->write8(0x02024284+100+i,r8(0x0202402c+i));
     }
     if(fixture.starts_with("camp-")){
@@ -414,63 +416,63 @@ int fixtureHook(uint32_t,int,ArmCpuState*){
         bus()->write8(0x02024029,6);
     }
     if(fixture=="released-a"){
-        for(unsigned i=0;i<3;++i){constexpr unsigned species[]{25,133,7};callGuest(addresses.createWild,species[i],10+i,0);callGuest(0x0808bbb4+code,0,i,0x0202402c);}
-        callGuest(0x0809a084+code,1,10); // Isolated capture fixture: Master Balls.
+        for(unsigned i=0;i<3;++i){constexpr unsigned species[]{25,133,7};callGuest(addresses.createWild,species[i],10+i,0);callGuest(gameAddress(0x0808bbb4),0,i,0x0202402c);}
+        callGuest(gameAddress(0x0809a084),1,10); // Isolated capture fixture: Master Balls.
     }
-    if(fixture=="released-b")callGuest(0x0809a084+code,1,10);
-    if(fixture=="unique-eevee"){callGuest(0x0806e6a8+code,0x263);callGuest(0x0806e6a8+code,0x57);}
-    if(fixture=="wild-repel")callGuest(0x0806e584+code,0x4020,250);
+    if(fixture=="released-b")callGuest(gameAddress(0x0809a084),1,10);
+    if(fixture=="unique-eevee"){callGuest(gameAddress(0x0806e6a8),0x263);callGuest(gameAddress(0x0806e6a8),0x57);}
+    if(fixture=="wild-repel")callGuest(gameAddress(0x0806e584),0x4020,250);
     if(fixture=="campaign-start"||fixture.starts_with("campaign-gate-")){
         for(unsigned flag:{0x829u,0x2bu,0x3au,0x820u,0x254u,0x238u,0x23au,0x574u,0x674u,0x69eu,0x53au,0x555u,0x4b0u})storyWrite(uint16_t(flag),0);
         storyWrite(0x2d,1);storyWrite(0x4055,4);storyWrite(0x4057,0);storyWrite(0x4051,0);storyWrite(0x4054,0);storyWrite(0x4058,0);storyWrite(0x406c,0);storyWrite(0x2e,0);
-        for(unsigned item:{327u,340u,342u,349u})while(callGuest(0x08099f40+code,item,1))callGuest(0x0809a1d8+code,item,1);
+        for(unsigned item:{327u,340u,342u,349u})while(callGuest(gameAddress(0x08099f40),item,1))callGuest(gameAddress(0x0809a1d8),item,1);
     }
     if(fixture.starts_with("campaign-")&&fixture!="campaign-start"&&campaignValue(0x4057)<2)storyWrite(0x829,0);
     if(fixture=="campaign-brock"||fixture=="campaign-trainer"){
         callGuest(addresses.createWild,1,50,0);for(unsigned i=0;i<100;++i)bus()->write8(0x02024284+i,r8(0x0202402c+i));
         for(unsigned i=100;i<600;++i)bus()->write8(0x02024284+i,0);bus()->write8(0x02024029,1);
-        callGuest(0x0803e964+code,0x02024284,22,0);for(unsigned i=1;i<4;++i)callGuest(0x0803e964+code,0x02024284,0,i);
+        callGuest(gameAddress(0x0803e964),0x02024284,22,0);for(unsigned i=1;i<4;++i)callGuest(gameAddress(0x0803e964),0x02024284,0,i);
     }
     if(fixture.starts_with("campaign-retry-")){
-        callGuest(0x080554cc+code,2); // Native Viridian heal checkpoint in the disposable fixture.
+        callGuest(gameAddress(0x080554cc),2); // Native Viridian heal checkpoint in the disposable fixture.
         storyWrite(0x828,1);storyWrite(0x829,1);storyWrite(0x4055,6);storyWrite(0x4057,2);storyWrite(0x4054,1);storyWrite(0x4f,1);
         for(uint16_t flag=0x500;flag<0x800;++flag)storyWrite(flag,0);
         callGuest(addresses.createWild,1,fixture=="campaign-retry-a"?5:80,0);
         for(unsigned i=0;i<100;++i)bus()->write8(0x02024284+i,r8(0x0202402c+i));
         for(unsigned i=100;i<600;++i)bus()->write8(0x02024284+i,0);bus()->write8(0x02024029,1);
-        callGuest(0x0803e964+code,0x02024284,fixture=="campaign-retry-a"?150:33,0);for(unsigned i=1;i<4;++i)callGuest(0x0803e964+code,0x02024284,0,i);
+        callGuest(gameAddress(0x0803e964),0x02024284,fixture=="campaign-retry-a"?150:33,0);for(unsigned i=1;i<4;++i)callGuest(gameAddress(0x0803e964),0x02024284,0,i);
         if(fixture=="campaign-retry-a")bus()->write16(0x02024284+86,1);
-        callGuest(0x0809fd70+code,r32(0x03005008)+0x290,3000);
+        callGuest(gameAddress(0x0809fd70),r32(0x03005008)+0x290,3000);
     }
     if(fixture=="campaign-oak")storyWrite(0x2b,0);
     if(fixture=="campaign-president"){storyWrite(0x053,1);storyWrite(0x4060,1);}
-    if(fixture=="campaign-warden"){storyWrite(0x189,1);callGuest(0x0809a084+code,353,1);}
-    if(fixture=="campaign-start")callGuest(0x0805538c+code,3,1,0xffffffff,26,27);
-    else if(fixture=="campaign-gate-oldman-a")callGuest(0x0805538c+code,3,1,0xffffffff,21,12);
-    else if(fixture=="campaign-gate-oldman-b")callGuest(0x0805538c+code,3,1,0xffffffff,22,12);
-    else if(fixture=="campaign-gate-pewter-a")callGuest(0x0805538c+code,3,2,0xffffffff,41,21);
-    else if(fixture=="campaign-gate-pewter-b")callGuest(0x0805538c+code,3,2,0xffffffff,41,22);
-    else if(fixture=="campaign-retry-a"||fixture=="campaign-retry-b")callGuest(0x0805538c+code,3,41,0xffffffff,34,fixture=="campaign-retry-a"?5:6);
-    else if(fixture=="campaign-mart")callGuest(0x0805538c+code,5,3,0xffffffff,4,7);
-    else if(fixture=="campaign-oak")callGuest(0x0805538c+code,4,3,0xffffffff,6,4);
-    else if(fixture=="campaign-brock")callGuest(0x0805538c+code,6,2,0xffffffff,6,6);
-    else if(fixture=="campaign-warden")callGuest(0x0805538c+code,11,7,0xffffffff,3,6);
-    else if(fixture=="campaign-trainer")callGuest(0x0805538c+code,3,21,0xffffffff,19,10);
-    else if(fixture=="campaign-president")callGuest(0x0805538c+code,1,57,0xffffffff,9,10);
-    else if(fixture=="campaign-oldman")callGuest(0x0805538c+code,3,1,0xffffffff,21,12);
-    else if(fixture=="campaign-fly")callGuest(0x0805538c+code,25,0,0xffffffff,4,3);
-    else if(fixture=="released-a")callGuest(0x0805538c+code,5,4,0xffffffff,11,2);
-    else if(fixture=="released-b")callGuest(0x0805538c+code,3,1,0xffffffff,28,27);
-    else if(fixture=="field-a"||fixture=="field-b")callGuest(0x0805538c+code,3,21,0xffffffff,64,fixture=="field-a"?11:12);
-    else if(fixture=="field-center-a"||fixture=="field-center-b")callGuest(0x0805538c+code,5,4,0xffffffff,7,fixture=="field-center-a"?6:7);
-    else if(fixture=="story-rival"){callGuest(0x0806e584+code,0x4052,0);callGuest(0x0806e680+code,0x3c);callGuest(0x0805538c+code,3,3,0xffffffff,23,8);}
-    else if(fixture=="unique-eevee")callGuest(0x0805538c+code,10,11,0xffffffff,7,4);
-    else if(fixture=="camp-route1"||fixture=="camp-route1-b")callGuest(0x0805538c+code,3,19,0xffffffff,fixture=="camp-route1-b"?10:8,13);
-    else if(fixture.starts_with("camp"))callGuest(0x0805538c+code,3,21,0xffffffff,fixture=="camp-b"?67:64,11);
-    else if(fixture=="spectate")callGuest(0x0805538c+code,3,19,0xffffffff,16,14);
-    else if(fixture.starts_with("wild")||fixture=="battle-char")callGuest(0x0805538c+code,3,19,0xffffffff,12,14);
-    else callGuest(0x0805538c+code,5,5,0xffffffff,4,7);
-    callGuest(0x0807e438+code);
+    if(fixture=="campaign-warden"){storyWrite(0x189,1);callGuest(gameAddress(0x0809a084),353,1);}
+    if(fixture=="campaign-start")callGuest(gameAddress(0x0805538c),3,1,0xffffffff,26,27);
+    else if(fixture=="campaign-gate-oldman-a")callGuest(gameAddress(0x0805538c),3,1,0xffffffff,21,12);
+    else if(fixture=="campaign-gate-oldman-b")callGuest(gameAddress(0x0805538c),3,1,0xffffffff,22,12);
+    else if(fixture=="campaign-gate-pewter-a")callGuest(gameAddress(0x0805538c),3,2,0xffffffff,41,21);
+    else if(fixture=="campaign-gate-pewter-b")callGuest(gameAddress(0x0805538c),3,2,0xffffffff,41,22);
+    else if(fixture=="campaign-retry-a"||fixture=="campaign-retry-b")callGuest(gameAddress(0x0805538c),3,41,0xffffffff,34,fixture=="campaign-retry-a"?5:6);
+    else if(fixture=="campaign-mart")callGuest(gameAddress(0x0805538c),5,3,0xffffffff,4,7);
+    else if(fixture=="campaign-oak")callGuest(gameAddress(0x0805538c),4,3,0xffffffff,6,4);
+    else if(fixture=="campaign-brock")callGuest(gameAddress(0x0805538c),6,2,0xffffffff,6,6);
+    else if(fixture=="campaign-warden")callGuest(gameAddress(0x0805538c),11,7,0xffffffff,3,6);
+    else if(fixture=="campaign-trainer")callGuest(gameAddress(0x0805538c),3,21,0xffffffff,19,10);
+    else if(fixture=="campaign-president")callGuest(gameAddress(0x0805538c),1,57,0xffffffff,9,10);
+    else if(fixture=="campaign-oldman")callGuest(gameAddress(0x0805538c),3,1,0xffffffff,21,12);
+    else if(fixture=="campaign-fly")callGuest(gameAddress(0x0805538c),25,0,0xffffffff,4,3);
+    else if(fixture=="released-a")callGuest(gameAddress(0x0805538c),5,4,0xffffffff,11,2);
+    else if(fixture=="released-b")callGuest(gameAddress(0x0805538c),3,1,0xffffffff,28,27);
+    else if(fixture=="field-a"||fixture=="field-b")callGuest(gameAddress(0x0805538c),3,21,0xffffffff,64,fixture=="field-a"?11:12);
+    else if(fixture=="field-center-a"||fixture=="field-center-b")callGuest(gameAddress(0x0805538c),5,4,0xffffffff,7,fixture=="field-center-a"?6:7);
+    else if(fixture=="story-rival"){callGuest(gameAddress(0x0806e584),0x4052,0);callGuest(gameAddress(0x0806e680),0x3c);callGuest(gameAddress(0x0805538c),3,3,0xffffffff,23,8);}
+    else if(fixture=="unique-eevee")callGuest(gameAddress(0x0805538c),10,11,0xffffffff,7,4);
+    else if(fixture=="camp-route1"||fixture=="camp-route1-b")callGuest(gameAddress(0x0805538c),3,19,0xffffffff,fixture=="camp-route1-b"?10:8,13);
+    else if(fixture.starts_with("camp"))callGuest(gameAddress(0x0805538c),3,21,0xffffffff,fixture=="camp-b"?67:64,11);
+    else if(fixture=="spectate")callGuest(gameAddress(0x0805538c),3,19,0xffffffff,16,14);
+    else if(fixture.starts_with("wild")||fixture=="battle-char")callGuest(gameAddress(0x0805538c),3,19,0xffffffff,12,14);
+    else callGuest(gameAddress(0x0805538c),5,5,0xffffffff,4,7);
+    callGuest(gameAddress(0x0807e438));
     std::printf("TEST_FIXTURE=%s synthetic party and map setup; local validation only\n",fixture.c_str());
     return 0;
 }
@@ -653,28 +655,28 @@ void drawCaptions(){
 }
 void initialize(FireRedRevision revision,const std::filesystem::path& diagnostics,const std::filesystem::path& saveFile){
     campaignNativeSave=saveFile;
-    const bool v11=revision==FireRedRevision::FireRed_US_11;const uint32_t code=v11?0x14:0,data=v11?0x70:0;
-    addresses={0x080565b4+code,0x083d37a0+data,0x083d3e80+data,0x083d3740+data,0x083c9cb8+data,
-               0x0839fdb0+data,0x083a5158+data,0x080833b0+code,0x080a029c+code,0x0807f704+code,0x0808310c+code};
+    gameRevision=revision;
+    addresses={gameAddress(0x080565b4),gameAddress(0x083d37a0),gameAddress(0x083d3e80),gameAddress(0x083d3740),gameAddress(0x083c9cb8),
+               gameAddress(0x0839fdb0),gameAddress(0x083a5158),gameAddress(0x080833b0),gameAddress(0x080a029c),gameAddress(0x0807f704),gameAddress(0x0808310c)};
     registerFieldHooks();
     registerStoryRetryHooks();
     registerWorldSessionHooks();
     diagnosticPath=diagnostics;lastRemoteField={};battleVisualId={};localBattle={};battleMotion={};battleEntered=battleMonDataReady=false;battleIdentity=uint32_t(uint64_t(clockMs()));
-    gba_mod_register_function_entry_plugin("pokemulti.release",0x08093218+code,1,releaseMonHook);
+    gba_mod_register_function_entry_plugin("pokemulti.release",gameAddress(0x08093218),1,releaseMonHook);
     gba_mod_set_function_hook_enabled("pokemulti.release",1);
-    gba_mod_register_function_entry_plugin("pokemulti.battle-start",0x0807f690+code,1,battleStartHook);
+    gba_mod_register_function_entry_plugin("pokemulti.battle-start",gameAddress(0x0807f690),1,battleStartHook);
     gba_mod_set_function_hook_enabled("pokemulti.battle-start",1);
     localCamp={};campFrames={};campMotion={};campBorders={};campRequested=campPending=false;campIdentity=uint32_t(uint64_t(clockMs()));
-    gba_mod_register_function_entry_plugin("pokemulti.field-collision",0x080636ac+code,1,fieldCollisionHook);
+    gba_mod_register_function_entry_plugin("pokemulti.field-collision",gameAddress(0x080636ac),1,fieldCollisionHook);
     gba_mod_set_function_hook_enabled("pokemulti.field-collision",1);
-    for(const auto& hook:std::vector<std::pair<uint32_t,decltype(&npcMovementHook)>>{{0x08069fb0,campaignGymGiftHook},{0x0806e6d0,campaignFlagHook},{0x080a011c,uniqueGiftHook},{0x08040b14,uniqueGiftHook},{0x08063db8,npcMovementHook},{0x0806cff4,interactedHook},{0x0806dd80,coordHook},{0x08081b84,trainerHook},{0x08069c74,onFrameHook}}){const auto name="firered.shared-"+std::to_string(hook.first);gba_mod_register_function_entry_plugin(name.c_str(),hook.first+code,1,hook.second);gba_mod_set_function_hook_enabled(name.c_str(),1);}
-    speciesNames=0x08245ee0+data;followerSheets.clear();followerPath.clear();
-    elevationPriority=0x083a707c+data;elevationSubpriority=0x083a706c+data;
-    gba_mod_register_function_entry_plugin("firered.oam-begin",0x08006ba8+code,1,beginOamHook);
+    for(const auto& hook:std::vector<std::pair<uint32_t,decltype(&npcMovementHook)>>{{0x08069fb0,campaignGymGiftHook},{0x0806e6d0,campaignFlagHook},{0x080a011c,uniqueGiftHook},{0x08040b14,uniqueGiftHook},{0x08063db8,npcMovementHook},{0x0806cff4,interactedHook},{0x0806dd80,coordHook},{0x08081b84,trainerHook},{0x08069c74,onFrameHook}}){const auto name="firered.shared-"+std::to_string(hook.first);gba_mod_register_function_entry_plugin(name.c_str(),gameAddress(hook.first),1,hook.second);gba_mod_set_function_hook_enabled(name.c_str(),1);}
+    speciesNames=gameAddress(0x08245ee0);followerSheets.clear();followerPath.clear();
+    elevationPriority=gameAddress(0x083a707c);elevationSubpriority=gameAddress(0x083a706c);
+    gba_mod_register_function_entry_plugin("firered.oam-begin",gameAddress(0x08006ba8),1,beginOamHook);
     gba_mod_set_function_hook_enabled("firered.oam-begin",1);
-    gba_mod_register_function_entry_plugin("firered.oam-submit",0x08008a64+code,1,submitOamHook);
+    gba_mod_register_function_entry_plugin("firered.oam-submit",gameAddress(0x08008a64),1,submitOamHook);
     gba_mod_set_function_hook_enabled("firered.oam-submit",1);
-    gba_mod_register_function_entry_plugin("firered.oam-finish",0x08006eb8+code,1,finishOamHook);
+    gba_mod_register_function_entry_plugin("firered.oam-finish",gameAddress(0x08006eb8),1,finishOamHook);
     gba_mod_set_function_hook_enabled("firered.oam-finish",1);
     // CB2 entry observes the previous completed field update. A PPU frame yield
     // can interrupt CameraUpdate between its tile and pixel writes.
