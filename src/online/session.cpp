@@ -2,10 +2,15 @@
 #include "online/campaign.hpp"
 #include "frontend/world_store.hpp"
 #include "platform/text.hpp"
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <bcrypt.h>
 #include <iphlpapi.h>
+#else
+#include "platform/mac_network.hpp"
+#include "platform/mac_support.hpp"
+#endif
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -20,6 +25,11 @@
 namespace fr::online {
 namespace {
 using Bytes=std::vector<uint8_t>;
+#ifdef _WIN32
+using SocketLength=int;
+#else
+using SocketLength=socklen_t;
+#endif
 using Clock=std::chrono::steady_clock;
 enum Type:uint8_t {Hello=1,Welcome=2,State=3,Snapshot=4,Invite=5,Reply=6,CableOff=7,Ready=8,SerialStart=9,SerialReply=10,Notice=11,Motion=12,ChatSend=13,ChatBroadcast=14,WorldUpdate=15,WorldSnapshot=16,StoryUpdate=17,StorySnapshot=18,EncounterClaim=19,EncounterResult=20,EncounterRelease=21,EncounterSnapshot=22,WalletUpdate=23,WagerSnapshot=24,WagerEvent=25,CampSnapshot=26,BattleSnapshot=27,ReleasedOffer=28,ReleasedClaim=29,ReleasedFinish=30,ReleasedSnapshot=31,ReleasedResult=32,CampaignSnapshot=33,BattleStage=34,InvitationCancel=35,EncounterCheckpoint=36,Membership=37,DepartureEvent=38,PlayerCheckpoint=39,CheckpointAck=40,CheckpointRequest=41};
 void byte(Bytes& b,unsigned v){b.push_back(uint8_t(v));}
@@ -112,7 +122,11 @@ bool validIdentity(const std::string& id,const std::string& name){
 }
 std::string randomId(){
     std::array<uint8_t,16> bytes{};
+#ifdef _WIN32
     if(BCryptGenRandom(nullptr,bytes.data(),ULONG(bytes.size()),BCRYPT_USE_SYSTEM_PREFERRED_RNG)<0)throw std::runtime_error("Could not generate room identity");
+#else
+    fr::secureRandom(bytes.data(),bytes.size());
+#endif
     constexpr char hex[]="0123456789abcdef";std::string result;
     for(auto b:bytes){result+=hex[b>>4];result+=hex[b&15];}return result;
 }
@@ -526,9 +540,11 @@ struct Session::Impl {
         sockaddr_in addr{};addr.sin_family=AF_INET;addr.sin_port=htons(port);
         if(host){
             addr.sin_addr.s_addr=htonl(INADDR_ANY);
+#ifdef _WIN32
             BOOL exclusive=TRUE;setsockopt(s,SOL_SOCKET,SO_EXCLUSIVEADDRUSE,reinterpret_cast<const char*>(&exclusive),sizeof(exclusive));
+#endif
             if(!current.localWorld&&(bind(s,reinterpret_cast<sockaddr*>(&addr),sizeof(addr))||listen(s,MaxRoomPlayers))){closesocket(s);current.running=false;throw std::runtime_error("Cannot host on this port. It may already be in use.");}
-            int n=sizeof(addr);getsockname(s,reinterpret_cast<sockaddr*>(&addr),&n);current.port=ntohs(addr.sin_port);
+            SocketLength n=sizeof(addr);getsockname(s,reinterpret_cast<sockaddr*>(&addr),&n);current.port=ntohs(addr.sin_port);
             if(current.localWorld){closesocket(s);current.port=0;}else{listener=s;try{nonblock(listener);listenerEvent=watch(listener,FD_ACCEPT|FD_CLOSE);}catch(...){closeListener();current.running=false;throw;}}current.slot=0;current.connected=true;current.message="Hosting your world.";
             Peer p;p.slot=0;p.id=identity;p.name=name;current.peers={p};membership(p,1);
         }else{
@@ -537,8 +553,8 @@ struct Session::Impl {
             const int connected=connect(s,reinterpret_cast<sockaddr*>(&addr),sizeof(addr));
             if(connected==SOCKET_ERROR&&WSAGetLastError()!=WSAEWOULDBLOCK){closesocket(s);current.running=false;throw std::runtime_error("Could not connect to host.");}
             fd_set writable;FD_ZERO(&writable);FD_SET(s,&writable);timeval timeout{3,0};
-            if(select(0,nullptr,&writable,nullptr,&timeout)<=0){closesocket(s);current.running=false;throw std::runtime_error("Host did not respond. Check address, VPN and firewall.");}
-            int error=0,n=sizeof(error);getsockopt(s,SOL_SOCKET,SO_ERROR,reinterpret_cast<char*>(&error),&n);
+            if(select(int(s)+1,nullptr,&writable,nullptr,&timeout)<=0){closesocket(s);current.running=false;throw std::runtime_error("Host did not respond. Check address, VPN and firewall.");}
+            int error=0;SocketLength n=sizeof(error);getsockopt(s,SOL_SOCKET,SO_ERROR,reinterpret_cast<char*>(&error),&n);
             if(error){closesocket(s);current.running=false;throw std::runtime_error("Host refused the connection.");}
             Connection c;c.socket=s;try{c.event=watch(s,FD_READ|FD_WRITE|FD_CLOSE);}catch(...){closeConnection(c);current.running=false;throw;}Bytes body;string(body,key);string(body,identity);string(body,name);string(body,expectedRom);string(body,credential);queue(c,Hello,body);connections.push_back(std::move(c));current.message="Joining room...";
         }
@@ -556,6 +572,7 @@ Status Session::status() const{std::lock_guard lock(impl_->mutex);auto state=imp
 std::string Session::id() const{return impl_->identity;}
 std::string Session::connectionKey() const{std::lock_guard lock(impl_->mutex);return impl_->key;}
 std::vector<std::string> Session::localAddresses() const {
+#ifdef _WIN32
     ULONG bytes=15000;std::vector<uint8_t> storage(bytes);
     auto* adapters=reinterpret_cast<IP_ADAPTER_ADDRESSES*>(storage.data());
     ULONG result=GetAdaptersAddresses(AF_INET,GAA_FLAG_SKIP_ANYCAST|GAA_FLAG_SKIP_MULTICAST|GAA_FLAG_SKIP_DNS_SERVER,nullptr,adapters,&bytes);
@@ -567,6 +584,10 @@ std::vector<std::string> Session::localAddresses() const {
         if((value>>24)==127||(value>>16)==0xa9fe)continue;
         char text[INET_ADDRSTRLEN]{};if(inet_ntop(AF_INET,&ip->sin_addr,text,sizeof(text))&&std::find(addresses.begin(),addresses.end(),text)==addresses.end())addresses.emplace_back(text);
     }
+#else
+    std::vector<std::string> addresses;struct ifaddrs* list=nullptr;
+    if(getifaddrs(&list)==0){for(auto* p=list;p;p=p->ifa_next){if(!p->ifa_addr||p->ifa_addr->sa_family!=AF_INET||!(p->ifa_flags&IFF_UP)||(p->ifa_flags&IFF_LOOPBACK))continue;char text[INET_ADDRSTRLEN]{};auto* a=reinterpret_cast<sockaddr_in*>(p->ifa_addr);if(inet_ntop(AF_INET,&a->sin_addr,text,sizeof(text)))addresses.emplace_back(text);}freeifaddrs(list);}
+#endif
     if(addresses.empty())addresses.emplace_back("127.0.0.1");
     return addresses;
 }

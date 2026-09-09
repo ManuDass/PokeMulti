@@ -1,9 +1,6 @@
 #include "game/labels.hpp"
 #include "platform/text.hpp"
 #include "platform/image.hpp"
-#include <windows.h>
-#include <wincodec.h>
-#include <wrl/client.h>
 #include <imgui.h>
 #include <algorithm>
 #include <array>
@@ -12,13 +9,9 @@
 #include <stdexcept>
 namespace fr::game {
 std::filesystem::path fontFolder(){
-    wchar_t path[32768]{};
-    if(!GetModuleFileNameW(nullptr,path,32768))throw std::runtime_error("Cannot locate UI assets");
-    return std::filesystem::path(path).parent_path()/"Fonts";
+    return executableFolder()/"Fonts";
 }
 namespace {
-using Microsoft::WRL::ComPtr;
-void checked(HRESULT hr){if(FAILED(hr))throw std::runtime_error("Cannot load chat bubble tiles");}
 struct Art {
     ImFontAtlas atlas;
     ImFont* font=nullptr;
@@ -31,21 +24,9 @@ struct Art {
         font=atlas.AddFontFromFileTTF(narrow((folder/"PixelOperator8.ttf").wstring()).c_str(),8,&config,atlas.GetGlyphRangesDefault());
         if(!font)throw std::runtime_error("Cannot load Pixel Operator font");
         atlas.GetTexDataAsAlpha8(&alpha,&aw,&ah);
-        const HRESULT init=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
-        struct Cleanup {bool active;~Cleanup(){if(active)CoUninitialize();}} cleanup{SUCCEEDED(init)};
-        ComPtr<IWICImagingFactory> factory;checked(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&factory)));
-        constexpr const wchar_t* names[]{L"Upper Left Corner.png",L"Upper Middle Tile.png",L"Upper Right Corner.png",L"Left Middle Tile.png",L"Middle Tile.png",L"Right Middle Tile.png",L"Bottom Left Corner.png",L"Bottom Middle Tile.png",L"Bottom Right Corner.png",L"Thin Left Tile.png",L"Thin Middle Tile.png",L"Thin Right Tile.png"};
-        for(unsigned i=0;i<12;++i){
-            ComPtr<IWICBitmapDecoder> decoder;checked(factory->CreateDecoderFromFilename((folder/L"CHAT BUBBLE TILES"/names[i]).c_str(),nullptr,GENERIC_READ,WICDecodeMetadataCacheOnLoad,&decoder));
-            ComPtr<IWICBitmapFrameDecode> frame;checked(decoder->GetFrame(0,&frame));
-            UINT w=0,h=0;checked(frame->GetSize(&w,&h));if(w!=16||h!=16)throw std::runtime_error("Chat tiles must be 16 by 16 pixels");
-            ComPtr<IWICFormatConverter> converter;checked(factory->CreateFormatConverter(&converter));checked(converter->Initialize(frame.Get(),GUID_WICPixelFormat32bppRGBA,WICBitmapDitherTypeNone,nullptr,0,WICBitmapPaletteTypeCustom));
-            std::array<uint8_t,16*16*4> rgba{};checked(converter->CopyPixels(nullptr,64,UINT(rgba.size()),rgba.data()));
-            // Copy each source texel exactly. No scaling, palette conversion,
-            // recoloring, generated borders, pointers, or corner replacement.
-            for(size_t pixel=0;pixel<256;++pixel){const auto* p=&rgba[pixel*4];tiles[i][pixel]=uint32_t(p[0])|(uint32_t(p[1])<<8)|(uint32_t(p[2])<<16)|(uint32_t(p[3])<<24);}
+        constexpr const char* names[]{"Upper Left Corner.png","Upper Middle Tile.png","Upper Right Corner.png","Left Middle Tile.png","Middle Tile.png","Right Middle Tile.png","Bottom Left Corner.png","Bottom Middle Tile.png","Bottom Right Corner.png","Thin Left Tile.png","Thin Middle Tile.png","Thin Right Tile.png"};
+        for(unsigned i=0;i<12;++i){const auto image=readImage(folder/"CHAT BUBBLE TILES"/names[i]);if(image.width!=16||image.height!=16)throw std::runtime_error("Chat tiles must be 16 by 16 pixels");std::copy(image.pixels.begin(),image.pixels.end(),tiles[i].begin());}
 
-        }
     }
     int advance(wchar_t c) const {return int(std::lround(font->FindGlyph(ImWchar(c))->AdvanceX));}
     int width(const std::wstring& s) const {int w=0;for(auto c:s)w+=advance(c);return w;}

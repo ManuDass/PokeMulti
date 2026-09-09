@@ -7,8 +7,12 @@
 #include "input/pokeball.hpp"
 #include "frontend/ball_model.hpp"
 #include <imgui_internal.h>
+#ifdef _WIN32
 #include <windows.h>
 #include <shellapi.h>
+#else
+#include "platform/mac_support.hpp"
+#endif
 #include <SDL.h>
 #include <imgui.h>
 #include <backends/imgui_impl_sdl2.h>
@@ -26,7 +30,11 @@ namespace {
 void atomicText(const std::filesystem::path& path,const std::string& text){
     const auto temp=path.wstring()+L".tmp";
     {std::ofstream file(temp,std::ios::binary|std::ios::trunc);file<<text;file.flush();if(!file)throw std::runtime_error("Could not write profile settings");}
+#ifdef _WIN32
     if(!MoveFileExW(temp.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Could not replace profile settings");
+#else
+    replaceMacFile(temp,path);
+#endif
 }
 constexpr ImU32 ink=IM_COL32(28,34,44,255),muted=IM_COL32(123,132,142,255),cream=IM_COL32(246,244,237,255),red=IM_COL32(222,66,64,255),mint=IM_COL32(104,215,166,255);
 ImVec4 color(ImU32 c){return ImGui::ColorConvertU32ToFloat4(c);}
@@ -358,7 +366,11 @@ struct Panel::Impl {
         if(connected||busy){if(ImGui::Button(connected?"Disconnect":"Cancel",{width*.49f,28})){ball.disconnect();ballControls.reset();}}
         else if(ImGui::Button("Find controller",{width*.49f,28})){ballSelected=0;ballSelectedAddress=0;ball.scan();}
         ImGui::SameLine();if(ImGui::Button("Windows setup",{-1,28})){
+#ifdef _WIN32
             if(reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr,L"open",L"ms-settings:bluetooth",nullptr,nullptr,SW_SHOWNORMAL))<=32)error="Cannot open Windows Bluetooth settings.";
+#else
+            if(SDL_OpenURL("x-apple.systempreferences:com.apple.BluetoothSettings")<0)error="Cannot open Bluetooth settings.";
+#endif
         }
         if(!state.devices.empty()&&!connected&&state.phase!=input::BallPhase::Connecting&&state.phase!=input::BallPhase::Waiting){
             ballSelected=std::clamp(ballSelected,0,int(state.devices.size())-1);ballSelectedAddress=state.devices[ballSelected].address;
@@ -530,7 +542,13 @@ struct Panel::Impl {
 #endif
         if(capture){
             capture=false;int w=0,h=0;SDL_GetRendererOutputSize(renderer,&w,&h);auto* surface=SDL_CreateRGBSurfaceWithFormat(0,w,h,32,SDL_PIXELFORMAT_ARGB8888);
-            if(surface){if(SDL_RenderReadPixels(renderer,nullptr,surface->format->format,surface->pixels,surface->pitch)==0){const auto temp=data/"game-ui.bmp.tmp";if(SDL_SaveBMP(surface,narrow(temp.wstring()).c_str())==0)MoveFileExW(temp.c_str(),(data/"game-ui.bmp").c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH);}SDL_FreeSurface(surface);}}
+            if(surface){if(SDL_RenderReadPixels(renderer,nullptr,surface->format->format,surface->pixels,surface->pitch)==0){const auto temp=data/"game-ui.bmp.tmp";if(SDL_SaveBMP(surface,narrow(temp.wstring()).c_str())==0){
+#ifdef _WIN32
+MoveFileExW(temp.c_str(),(data/"game-ui.bmp").c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH);
+#else
+replaceMacFile(temp,data/"game-ui.bmp");
+#endif
+}}SDL_FreeSurface(surface);}}
     }
     void event(const void* raw){
         if(!context)return;ImGui::SetCurrentContext(context);const auto& e=*static_cast<const SDL_Event*>(raw);

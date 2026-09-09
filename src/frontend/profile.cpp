@@ -1,6 +1,10 @@
 #include "frontend/profile.hpp"
 #include "platform/text.hpp"
+#ifdef _WIN32
 #include <Windows.h>
+#else
+#include "platform/mac_support.hpp"
+#endif
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
@@ -8,10 +12,17 @@
 #include <sstream>
 #include <stdexcept>
 namespace fr {
+namespace { unsigned profileProcessId(){
+#ifdef _WIN32
+return GetCurrentProcessId();
+#else
+return unsigned(getpid());
+#endif
+} }
 void validateProfile(const Profile& profile) {
     if (!profile.romPath.is_absolute() || profile.romPath.native().size() > 32760)
         throw std::runtime_error("Profile ROM path must be an absolute local path.");
-    const auto path = narrow(profile.romPath.native());
+    const auto path = narrow(profile.romPath.wstring());
     if (path.find_first_of("\r\n") != std::string::npos || path.find('\0') != std::string::npos)
         throw std::runtime_error("Profile ROM path contains invalid characters.");
     if (profile.romSha256.size() != 64 || !std::all_of(profile.romSha256.begin(), profile.romSha256.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); }))
@@ -57,19 +68,23 @@ Profile renameProfile(const std::filesystem::path& file, const std::string& name
 void saveProfile(const std::filesystem::path& file, const Profile& profile) {
     validateProfile(profile);
     std::filesystem::create_directories(file.parent_path());
-    auto temp = file; temp += ".tmp." + std::to_string(GetCurrentProcessId());
+    auto temp = file; temp += ".tmp." + std::to_string(profileProcessId());
     try {
         std::ofstream out(temp, std::ios::binary | std::ios::trunc);
         if (!out) throw std::runtime_error("Cannot create the local profile.");
-        out << "schema \"1\"\nrom_path " << std::quoted(narrow(profile.romPath.native()))
+        out << "schema \"1\"\nrom_path " << std::quoted(narrow(profile.romPath.wstring()))
             << "\nrom_sha256 " << std::quoted(profile.romSha256)
             << "\nplayer_name " << std::quoted(profile.playerName) << '\n';
         out.flush();
         if (!out) throw std::runtime_error("Could not write the complete profile.");
         out.close();
         if (!out) throw std::runtime_error("Could not close the complete profile.");
+#ifdef _WIN32
         if (!MoveFileExW(temp.c_str(), file.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
             throw std::runtime_error("Could not atomically replace the profile.");
+#else
+        replaceMacFile(temp,file);
+#endif
     } catch (...) {
         std::error_code error; std::filesystem::remove(temp, error);
         throw;

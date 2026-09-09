@@ -1,8 +1,12 @@
 #include "frontend/world_store.hpp"
 #include "platform/text.hpp"
 #include "rom/rom.hpp"
+#ifdef _WIN32
 #include <Windows.h>
 #include <bcrypt.h>
+#else
+#include "platform/mac_support.hpp"
+#endif
 #include <array>
 #include <algorithm>
 #include <fstream>
@@ -32,13 +36,24 @@ std::filesystem::path playerFolder(const WorldInfo& world,const std::string& pla
 }
 }
 bool worldIdValid(const std::string& id){return id.size()==32&&std::all_of(id.begin(),id.end(),[](char c){return (c>='0'&&c<='9')||(c>='a'&&c<='f');});}
-std::string worldRandomId(){std::array<uint8_t,16> data{};if(BCryptGenRandom(nullptr,data.data(),ULONG(data.size()),BCRYPT_USE_SYSTEM_PREFERRED_RNG)<0)throw std::runtime_error("Cannot create world identity.");std::string id;for(auto c:data){id+="0123456789abcdef"[c>>4];id+="0123456789abcdef"[c&15];}return id;}
+std::string worldRandomId(){std::array<uint8_t,16> data{};
+#ifdef _WIN32
+if(BCryptGenRandom(nullptr,data.data(),ULONG(data.size()),BCRYPT_USE_SYSTEM_PREFERRED_RNG)<0)throw std::runtime_error("Cannot create world identity.");
+#else
+secureRandom(data.data(),data.size());
+#endif
+std::string id;for(auto c:data){id+="0123456789abcdef"[c>>4];id+="0123456789abcdef"[c&15];}return id;}
 void atomicWorldFile(const std::filesystem::path& file,std::span<const uint8_t> bytes){
     std::filesystem::create_directories(file.parent_path());const auto temp=file.wstring()+L".tmp";
+#ifdef _WIN32
     HANDLE h=CreateFileW(temp.c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
     if(h==INVALID_HANDLE_VALUE)throw std::runtime_error("Cannot write world checkpoint.");DWORD written=0;
     const bool ok=WriteFile(h,bytes.data(),DWORD(bytes.size()),&written,nullptr)&&written==bytes.size()&&FlushFileBuffers(h);CloseHandle(h);
     if(!ok||!MoveFileExW(temp.c_str(),file.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Cannot commit world checkpoint.");
+#else
+    {std::ofstream out(std::filesystem::path(temp),std::ios::binary);out.write(reinterpret_cast<const char*>(bytes.data()),bytes.size());out.close();if(!out)throw std::runtime_error("Cannot write world checkpoint.");}
+    replaceMacFile(temp,file);
+#endif
 }
 std::vector<uint8_t> readWorldFile(const std::filesystem::path& file,size_t limit){
     if(!std::filesystem::exists(file))return {};const auto n=std::filesystem::file_size(file);if(n>limit)throw std::runtime_error("World file exceeds size limit.");

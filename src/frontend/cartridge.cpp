@@ -1,5 +1,9 @@
 #include "frontend/cartridge.hpp"
+#ifdef _WIN32
 #include <windows.h>
+#else
+
+#endif
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -90,6 +94,7 @@ Image cartridgeArtwork(const std::filesystem::path& rom,const std::filesystem::p
     const char* labelName=gameCode.starts_with("BPR")?"Fire Red Cart Art.png":gameCode.starts_with("BPG")?"Leaf Green Cart Art.png":gameCode.starts_with("AXV")?"Ruby Cart Art.png":gameCode.starts_with("AXP")?"Sapphire Cart Art.png":gameCode.starts_with("BPE")?"Emerald Cart Art.png":nullptr;
     if(labelName){const auto supplied=localAsset(std::filesystem::path("Cart Art")/labelName);if(!supplied.empty())return readImage(supplied);}
     if(std::filesystem::exists(title))return readImage(title);
+#ifdef _WIN32
     std::filesystem::create_directories(cache);
     const auto input=cache/"preview-input.csv";
     {std::ofstream f(input);f<<"# gbarecomp-keyinput-v1\n0,0x3ff\n1700,0x3f7\n1710,0x3ff\n";}
@@ -111,5 +116,8 @@ Image cartridgeArtwork(const std::filesystem::path& rom,const std::filesystem::p
     DWORD code=1;GetExitCodeProcess(process.hProcess,&code);CloseHandle(process.hProcess);
     if(code||!std::filesystem::exists(title))return {};
     return readImage(title);
+#else
+    return {}; // The supported cartridge label is bundled; no external preview process is needed.
+#endif
 }
 }

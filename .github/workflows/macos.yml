@@ -1,0 +1,45 @@
+name: Mac preview
+on:
+  push:
+    branches: [macos-preview]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mac:
+    name: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Configure
+        run: cmake -S . -B build/mac -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} -DBUILD_TESTING=ON
+      - name: Build
+        run: cmake --build build/mac --parallel 3
+      - name: Test
+        run: ctest --test-dir build/mac --output-on-failure
+      - name: Launcher smoke test without a ROM
+        run: build/mac/pokemulti --smoke-test --data-dir "$RUNNER_TEMP/pokemulti-ui"
+      - name: Package app and disk image
+        run: python3 scripts/package_mac.py ${{ matrix.arch }}
+      - name: Upload preview and UI evidence
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: PokeMulti-macOS-${{ matrix.arch }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            ${{ runner.temp }}/pokemulti-ui/*.bmp
+          if-no-files-found: error
+          retention-days: 14

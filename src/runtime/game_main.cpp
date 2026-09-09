@@ -17,7 +17,12 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include "platform/mac_support.hpp"
+inline int _putenv_s(const char* name,const char* value){return setenv(name,value,1);}
+#endif
 #ifdef FR_TEST_HARNESS
 #include <SDL.h>
 #endif
@@ -168,7 +173,7 @@ void frame(uint64_t number){
 }
 }
 
-int wmain(int argc, wchar_t** argv) {
+int gameMain(int argc, wchar_t** argv) {
     try {
         std::cerr << "[PokeMulti] Runtime " << fr::BuildVersion << '\n';
         std::filesystem::path romPath, savePath, profilePath,worldPath,identityPath;
@@ -219,15 +224,23 @@ int wmain(int argc, wchar_t** argv) {
         if(profilePath.empty())profilePath=savePath.parent_path();if(identityPath.empty())identityPath=profilePath;launcherRoot=identityPath;
         const auto identity=fr::online::loadIdentity(identityPath);
         fr::online::Session online(identity,trainerName,worldPath.empty()?profilePath:worldPath);
+#ifdef _WIN32
         struct WorldLock {HANDLE handle=INVALID_HANDLE_VALUE;~WorldLock(){if(handle!=INVALID_HANDLE_VALUE)CloseHandle(handle);}} worldLock;
+#else
+        fr::MacFileLock worldLock;
+#endif
         if(!worldPath.empty()||!joinAddress.empty()){
             if(!roomPort||roomPort>65535||capacity<2||capacity>fr::MaxRoomPlayers||rewardPolicy>fr::game::AllRewardSharing)throw std::runtime_error("Invalid room settings.");
             auto secretBytes=fr::readWorldFile(identityPath/"identity.key",32);std::string secret(secretBytes.begin(),secretBytes.end());
             if(secret.empty()){secret=fr::worldRandomId();fr::atomicWorldFile(identityPath/"identity.key",{reinterpret_cast<const uint8_t*>(secret.data()),secret.size()});}
             online.configureWorld(worldPath,report.sha256,secret);
             if(!worldPath.empty()){
+#ifdef _WIN32
                 worldLock.handle=CreateFileW((worldPath/L"session.lock").c_str(),GENERIC_READ|GENERIC_WRITE,0,nullptr,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
                 if(worldLock.handle==INVALID_HANDLE_VALUE)throw std::runtime_error("This world is already open. Join its host instead.");
+#else
+                worldLock.acquire(worldPath/"session.lock");
+#endif
                 profilePath=worldPath/"players"/identity/"runtime";savePath=profilePath/"trainer.sav";
                 fr::WorldPlayers players(fr::loadWorld(worldPath));const auto checkpoint=players.load(identity);if(!checkpoint.empty())fr::restoreCheckpoint(profilePath,checkpoint);
                 if(onlineMode=="host")online.host(uint16_t(roomPort),roomKey,uint8_t(rewardPolicy),false,uint8_t(capacity));else online.playLocalWorld();
@@ -242,9 +255,13 @@ int wmain(int argc, wchar_t** argv) {
             }
         }
         if (!savePath.parent_path().empty()) std::filesystem::create_directories(savePath.parent_path());
+#ifdef _WIN32
         struct SaveLock { HANDLE h; ~SaveLock(){ if(h!=INVALID_HANDLE_VALUE) CloseHandle(h); } };
         SaveLock lock{CreateFileW((savePath.wstring()+L".lock").c_str(),GENERIC_READ|GENERIC_WRITE,0,nullptr,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr)};
         if(lock.h==INVALID_HANDLE_VALUE) throw std::runtime_error("This save is already open in another game, or the save folder is not writable.");
+#else
+        fr::MacFileLock lock;lock.acquire(savePath.wstring()+L".lock");
+#endif
         arguments.insert(arguments.end(),{"--rom",fr::narrow(romPath.wstring()),"--save",fr::narrow(savePath.wstring())});
         gbarecomp::RunOptions options;
         options.builtin_game_name="Pok\xc3\xa9Multi";
@@ -302,3 +319,9 @@ int wmain(int argc, wchar_t** argv) {
         std::cerr<<"PokeMulti runtime: "<<error.what()<<'\n'; return 1;
     }
 }
+
+#ifdef _WIN32
+int wmain(int argc,wchar_t** argv){return gameMain(argc,argv);}
+#else
+int main(int argc,char** argv){SDL_SetMainReady();std::vector<std::wstring> storage;for(int i=0;i<argc;++i)storage.push_back(fr::widen(argv[i]));std::vector<wchar_t*> wide;for(auto& value:storage)wide.push_back(value.data());return gameMain(argc,wide.data());}
+#endif

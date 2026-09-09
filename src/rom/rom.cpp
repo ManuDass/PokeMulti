@@ -1,7 +1,11 @@
 #include "rom/rom.hpp"
 #include "rom/zip.hpp"
+#ifdef _WIN32
 #include <Windows.h>
 #include <bcrypt.h>
+#else
+#include <CommonCrypto/CommonDigest.h>
+#endif
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -9,6 +13,7 @@
 #include <stdexcept>
 namespace fr {
 namespace {
+#ifdef _WIN32
 struct Algorithm {
     BCRYPT_ALG_HANDLE handle{};
     ~Algorithm() { if (handle) BCryptCloseAlgorithmProvider(handle, 0); }
@@ -18,6 +23,7 @@ struct Hash {
     ~Hash() { if (handle) BCryptDestroyHash(handle); }
 };
 void check(NTSTATUS status) { if (status < 0) throw std::runtime_error("Windows cryptographic hashing failed."); }
+#endif
 std::string headerText(std::span<const uint8_t> bytes, size_t offset, size_t count) {
     std::string value;
     for (size_t i = offset; i < offset + count && bytes[i]; ++i)
@@ -26,6 +32,7 @@ std::string headerText(std::span<const uint8_t> bytes, size_t offset, size_t cou
 }
 }
 std::string digest(std::span<const uint8_t> bytes, bool sha256) {
+    #ifdef _WIN32
     Algorithm algorithm;
     check(BCryptOpenAlgorithmProvider(&algorithm.handle, sha256 ? BCRYPT_SHA256_ALGORITHM : BCRYPT_SHA1_ALGORITHM, nullptr, 0));
     DWORD objectSize{}, resultSize{}, returned{};
@@ -40,6 +47,10 @@ std::string digest(std::span<const uint8_t> bytes, bool sha256) {
         offset += count;
     }
     check(BCryptFinishHash(hash.handle, result.data(), resultSize, 0));
+    #else
+    std::vector<uint8_t> result(sha256?CC_SHA256_DIGEST_LENGTH:CC_SHA1_DIGEST_LENGTH);
+    if(sha256)CC_SHA256(bytes.data(),CC_LONG(bytes.size()),result.data());else CC_SHA1(bytes.data(),CC_LONG(bytes.size()),result.data());
+    #endif
     std::ostringstream out;
     for (auto byte : result) out << std::hex << std::setfill('0') << std::setw(2) << static_cast<unsigned>(byte);
     return out.str();
@@ -95,6 +106,10 @@ std::string revisionName(FireRedRevision revision) {
     }
 }
 std::string describe(const RomReport& report) {
+    #else
+    std::vector<uint8_t> result(sha256?CC_SHA256_DIGEST_LENGTH:CC_SHA1_DIGEST_LENGTH);
+    if(sha256)CC_SHA256(bytes.data(),CC_LONG(bytes.size()),result.data());else CC_SHA1(bytes.data(),CC_LONG(bytes.size()),result.data());
+    #endif
     std::ostringstream out;
     out << (report.supported() ? "ROM identity verified: " + revisionName(report.revision) : report.error)
         << "\nSHA-256: " << report.sha256 << "\nSHA-1: " << report.sha1

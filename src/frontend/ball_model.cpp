@@ -1,10 +1,14 @@
 #include "frontend/ball_model.hpp"
 #include "platform/text.hpp"
+#ifdef _WIN32
 #include <windows.h>
 #include <objbase.h>
 #include <xmllite.h>
 #include <shlwapi.h>
 #include <wrl/client.h>
+#else
+#include <libxml/parser.h>
+#endif
 #include <map>
 #include <memory>
 #include <sstream>
@@ -14,7 +18,9 @@
 #include <stdexcept>
 namespace fr {
 namespace {
+#ifdef _WIN32
 using Microsoft::WRL::ComPtr;
+#endif
 struct Node {
     std::string name,text;std::map<std::string,std::string> attrs;std::vector<std::unique_ptr<Node>> children;
     std::string attr(const char* key)const{auto i=attrs.find(key);return i==attrs.end()?"":i->second;}
@@ -23,6 +29,7 @@ struct Node {
 void ensure(bool ok){if(!ok)throw std::runtime_error("Cannot read the supplied Pok\xc3\xa9 Ball Plus model.");}
 std::unique_ptr<Node> xml(const std::filesystem::path& path){
     ensure(std::filesystem::file_size(path)<=8*1024*1024);
+#ifdef _WIN32
     ComPtr<IStream> stream;ensure(SUCCEEDED(SHCreateStreamOnFileEx(path.c_str(),STGM_READ|STGM_SHARE_DENY_WRITE,0,FALSE,nullptr,&stream)));
     ComPtr<IXmlReader> reader;ensure(SUCCEEDED(CreateXmlReader(__uuidof(IXmlReader),reinterpret_cast<void**>(reader.GetAddressOf()),nullptr)));
     reader->SetProperty(XmlReaderProperty_DtdProcessing,DtdProcessing_Prohibit);
@@ -43,6 +50,13 @@ std::unique_ptr<Node> xml(const std::filesystem::path& path){
         }
     }
     ensure(hr==S_FALSE&&stack.size()==1);return root;
+#else
+    xmlDoc* doc=xmlReadFile(path.c_str(),nullptr,XML_PARSE_NONET|XML_PARSE_NOBLANKS);ensure(doc!=nullptr);
+    struct Cleanup{xmlDoc* doc;~Cleanup(){xmlFreeDoc(doc);}} cleanup{doc};ensure(!doc->intSubset&&!doc->extSubset);
+    auto root=std::make_unique<Node>();size_t count=0;
+    auto visit=[&](auto&& self,xmlNode* input,Node& parent,unsigned depth)->void{ensure(depth<=64);for(auto* p=input;p;p=p->next){if(p->type==XML_ELEMENT_NODE){ensure(++count<=50000);auto node=std::make_unique<Node>();node->name=reinterpret_cast<const char*>(p->name);for(auto* a=p->properties;a;a=a->next){xmlChar* value=xmlNodeListGetString(doc,a->children,1);if(value){node->attrs[reinterpret_cast<const char*>(a->name)]=reinterpret_cast<const char*>(value);xmlFree(value);}}self(self,p->children,*node,depth+1);parent.children.push_back(std::move(node));}else if(p->type==XML_TEXT_NODE||p->type==XML_CDATA_SECTION_NODE){if(p->content)parent.text+=reinterpret_cast<const char*>(p->content);}else ensure(p->type!=XML_ENTITY_REF_NODE);}};
+    visit(visit,xmlDocGetRootElement(doc),*root,0);return root;
+#endif
 }
 template<class T> std::vector<T> numbers(const Node* n){
     ensure(n!=nullptr);std::istringstream stream(n->text);std::vector<T> v;T x;

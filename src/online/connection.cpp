@@ -1,6 +1,10 @@
 #include "online/connection.hpp"
+#ifdef _WIN32
 #include <windows.h>
 #include <winhttp.h>
+#else
+#include <curl/curl.h>
+#endif
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -18,8 +22,10 @@ std::optional<uint32_t> ipv4(std::string_view value){
 }
 bool safeKey(std::string_view key){return key.size()>=8&&key.size()<=64&&std::all_of(key.begin(),key.end(),[](unsigned char c){return c>=32&&c!=127;});}
 std::string_view trim(std::string_view text){while(!text.empty()&&(text.front()==' '||text.front()=='\r'||text.front()=='\n'||text.front()=='\t'))text.remove_prefix(1);while(!text.empty()&&(text.back()==' '||text.back()=='\r'||text.back()=='\n'||text.back()=='\t'))text.remove_suffix(1);return text;}
+#ifdef _WIN32
 struct Http {HINTERNET handle=nullptr;explicit Http(HINTERNET h):handle(h){if(!h)throw std::runtime_error("Public address lookup unavailable");}~Http(){WinHttpCloseHandle(handle);}operator HINTERNET()const{return handle;}};
 void require(BOOL ok){if(!ok)throw std::runtime_error("Public address lookup unavailable");}
+#endif
 }
 bool validConnectionIPv4(std::string_view address,bool internet){
  auto value=ipv4(address);if(!value||(*value>>24)==0||(*value>>24)>=224)return false;
@@ -49,6 +55,7 @@ std::string connectionInvite(const ConnectionInvite& value,bool internet){
 std::string discoverPublicIPv4(){
  // IPv4-only HTTPS endpoint, direct connection: a browser HTTP proxy's
  // exit address would not describe this game's listening TCP socket.
+#ifdef _WIN32
  Http session(WinHttpOpen(L"PokeMulti public-address lookup",WINHTTP_ACCESS_TYPE_NO_PROXY,WINHTTP_NO_PROXY_NAME,WINHTTP_NO_PROXY_BYPASS,0));
  require(WinHttpSetTimeouts(session,2000,2000,2000,2000));DWORD retries=1,protocols=WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2;
  require(WinHttpSetOption(session,WINHTTP_OPTION_CONNECT_RETRIES,&retries,sizeof(retries)));
@@ -63,6 +70,16 @@ std::string discoverPublicIPv4(){
  for(;;){char bytes[64];DWORD count=0;require(WinHttpReadData(request,bytes,sizeof(bytes),&count));if(!count)break;
   if(GetTickCount64()>deadline||body.size()+count>64)throw std::runtime_error("Invalid public address response");body.append(bytes,count);
  }
+#else
+ CURL* request=curl_easy_init();if(!request)throw std::runtime_error("Public address lookup unavailable");
+ struct Cleanup{CURL* handle;~Cleanup(){curl_easy_cleanup(handle);}} cleanup{request};
+ std::string body;curl_easy_setopt(request,CURLOPT_URL,"https://api.ipify.org/");curl_easy_setopt(request,CURLOPT_PROXY,"");
+ curl_easy_setopt(request,CURLOPT_IPRESOLVE,CURL_IPRESOLVE_V4);curl_easy_setopt(request,CURLOPT_TIMEOUT_MS,6000L);curl_easy_setopt(request,CURLOPT_CONNECTTIMEOUT_MS,2000L);
+ curl_easy_setopt(request,CURLOPT_NOSIGNAL,1L);curl_easy_setopt(request,CURLOPT_FOLLOWLOCATION,0L);
+ curl_easy_setopt(request,CURLOPT_WRITEFUNCTION,+[](char* data,size_t size,size_t count,void* raw)->size_t{auto& result=*static_cast<std::string*>(raw);if(size&&count>64/size)return 0;size_t n=size*count;if(result.size()+n>64)return 0;result.append(data,n);return n;});
+ curl_easy_setopt(request,CURLOPT_WRITEDATA,&body);long status=0;const auto result=curl_easy_perform(request);curl_easy_getinfo(request,CURLINFO_RESPONSE_CODE,&status);
+ if(result!=CURLE_OK||status!=200)throw std::runtime_error("Public address lookup unavailable");
+#endif
  auto address=std::string(trim(body));if(!validConnectionIPv4(address,true))throw std::runtime_error("Invalid public address response");return address;
 }
 void PublicAddressLookup::refresh(){
