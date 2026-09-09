@@ -1,3 +1,5 @@
+The launcher now groups your username with a compact **Edit** button in the top-right header, aligned with the rest of the interface.
+
 Download **PokeMulti-Setup.exe**, open the installation wizard, choose a folder,
 and launch PokéMulti from the installed shortcut. The versioned ZIP is an
 optional portable download and the package used by the launcher updater.

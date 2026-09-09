@@ -11,3 +11,4 @@
 *.lib binary
 *.a binary
 *.dae binary
+third_party/gbarecomp/tests/symbol_import/golden/* text eol=lf
