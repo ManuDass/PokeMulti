@@ -196,7 +196,7 @@ struct Panel::Impl {
     void open(void* w,void* r){
         window=static_cast<SDL_Window*>(w);renderer=static_cast<SDL_Renderer*>(r);
         SDL_SetWindowTitle(window,("Pok\xc3\xa9Multi | "+name).c_str());
-        const auto icon=readImage(executableFolder()/"Program_Icon.png");
+        const auto icon=readImage(assetFolder()/"Program_Icon.png");
         auto* iconSurface=SDL_CreateRGBSurfaceWithFormatFrom(const_cast<uint32_t*>(icon.pixels.data()),icon.width,icon.height,32,icon.width*4,SDL_PIXELFORMAT_RGBA32);
         if(!iconSurface)throw std::runtime_error("Cannot load application icon");
         SDL_SetWindowIcon(window,iconSurface);logo=SDL_CreateTextureFromSurface(renderer,iconSurface);SDL_FreeSurface(iconSurface);

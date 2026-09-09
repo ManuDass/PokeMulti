@@ -9,7 +9,7 @@
 #include <stdexcept>
 namespace fr::game {
 std::filesystem::path fontFolder(){
-    return executableFolder()/"Fonts";
+    return assetFolder()/"Fonts";
 }
 namespace {
 struct Art {
@@ -47,7 +47,7 @@ const LabelImage& partyImage(unsigned count,unsigned eggs){
     static const LabelImage empty;
     if(!count||count>6||(eggs>>count))return empty;
     static const auto icons=[](){
-        const auto folder=fr::executableFolder()/"UI Artwork";
+        const auto folder=fr::assetFolder()/"UI Artwork";
         std::array<fr::Image,2> result{fr::readImage(folder/"Party Icon.png"),fr::readImage(folder/"Party Icon_Egg.png")};
         for(const auto& icon:result)if(icon.width>32||icon.height>32)throw std::runtime_error("Party icons must fit the overhead label area");
         return result;

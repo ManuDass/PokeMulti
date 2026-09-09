@@ -7,7 +7,7 @@
 #include <algorithm>
 namespace fr {
 std::filesystem::path executableFolder(){uint32_t size=0;_NSGetExecutablePath(nullptr,&size);std::vector<char> path(size);if(_NSGetExecutablePath(path.data(),&size))throw std::runtime_error("Cannot locate application.");return std::filesystem::canonical(path.data()).parent_path();}
-std::filesystem::path localAsset(const std::filesystem::path& relative){auto root=executableFolder();for(int i=0;i<4&&!root.empty();++i){const auto path=root/relative;if(std::filesystem::is_regular_file(path))return path;root=root.parent_path();}return {};}
+std::filesystem::path localAsset(const std::filesystem::path& relative){auto root=assetFolder();for(int i=0;i<4&&!root.empty();++i){const auto path=root/relative;if(std::filesystem::is_regular_file(path))return path;root=root.parent_path();}return {};}
 Image readImage(const std::filesystem::path& path){
     auto url=CFURLCreateFromFileSystemRepresentation(nullptr,reinterpret_cast<const UInt8*>(path.c_str()),path.native().size(),false);
     if(!url)throw std::runtime_error("Invalid image path.");

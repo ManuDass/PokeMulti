@@ -22,14 +22,15 @@ for executable in ('pokemulti','pokemulti_game'):
     for line in deps.splitlines()[1:]:
         dep=line.strip().split(' (')[0]
         if not dep.startswith(('/System/Library/','/usr/lib/')):raise RuntimeError('Unbundled dependency: '+dep)
-    subprocess.run(['codesign','--force','--sign','-',str(file)],check=True)
+    if executable=='pokemulti_game':subprocess.run(['codesign','--force','--sign','-','--identifier','com.manudass.pokemulti.game',str(file)],check=True)
 subprocess.run(['codesign','--force','--sign','-',str(app)],check=True)
 subprocess.run(['codesign','--verify','--deep','--strict',str(app)],check=True)
+subprocess.run([str(app/'Contents/MacOS/pokemulti'),'--smoke-test','--data-dir',str(root/'build/mac/bundle-smoke')],check=True,timeout=30)
 # A real .app, with all libraries supplied by macOS, requires no Xcode or Python.
 name='PokeMulti-'+version+'-macOS-'+arch
 zipfile=output/(name+'.zip')
 subprocess.run(['ditto','-c','-k','--keepParent',str(app),str(zipfile)],check=True)
-(stage/'Applications').symlink_to('/Applications',target_is_directory=True)
+if not (stage/'Applications').is_symlink():(stage/'Applications').symlink_to('/Applications',target_is_directory=True)
 (stage/'READ ME.txt').write_text('Drag PokeMulti to Applications, then open it.\n\nThis is an unsigned Mac preview. If macOS blocks it, use System Settings > Privacy & Security > Open Anyway for this app. Do not disable Gatekeeper.\n\nNo ROM is included. Select your own English FireRed US 1.0 or 1.1 .gba or ZIP when the launcher opens.\n\nYour worlds are stored in ~/Library/Application Support/PokeMulti.\n\nThis preview uses the interpreter and supports keyboard/SDL controllers. Poké Ball Plus Bluetooth and automatic Mac updates are not implemented yet.\n',encoding='utf-8')
 subprocess.run(['hdiutil','create','-volname','PokeMulti','-srcfolder',str(stage),'-ov','-format','UDZO',str(output/(name+'.dmg'))],check=True)
 print('Packaged',len(manifest),'audited files for',arch)

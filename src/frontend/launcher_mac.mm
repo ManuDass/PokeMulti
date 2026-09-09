@@ -157,11 +157,11 @@ struct Launcher {
         renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);if(!renderer)renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_SOFTWARE);if(!renderer)throw std::runtime_error(SDL_GetError());
         ImGui::CreateContext();auto& io=ImGui::GetIO();io.IniFilename=nullptr;io.LogFilename=nullptr;io.ConfigFlags|=ImGuiConfigFlags_NavEnableKeyboard;
         ImFontConfig config;config.OversampleH=config.OversampleV=1;config.PixelSnapH=true;
-        auto fonts=fr::executableFolder()/"Fonts";font=io.Fonts->AddFontFromFileTTF((fonts/"PixelOperator.ttf").c_str(),20,&config);bold=io.Fonts->AddFontFromFileTTF((fonts/"PixelOperator-Bold.ttf").c_str(),20,&config);
+        auto fonts=fr::assetFolder()/"Fonts";font=io.Fonts->AddFontFromFileTTF((fonts/"PixelOperator.ttf").c_str(),20,&config);bold=io.Fonts->AddFontFromFileTTF((fonts/"PixelOperator-Bold.ttf").c_str(),20,&config);
         if(!font||!bold)throw std::runtime_error("Included fonts are missing.");io.FontDefault=bold;
         auto& style=ImGui::GetStyle();style.WindowPadding={0,0};style.FramePadding={12,8};style.FrameRounding=6;style.FrameBorderSize=1;style.Colors[ImGuiCol_Text]=ImGui::ColorConvertU32ToFloat4(ink);style.Colors[ImGuiCol_FrameBg]=ImGui::ColorConvertU32ToFloat4(paper);style.Colors[ImGuiCol_Border]={.76,.80,.80,1};style.Colors[ImGuiCol_ButtonHovered]={.87,.92,.88,1};style.Colors[ImGuiCol_ButtonActive]={.77,.85,.81,1};style.Colors[ImGuiCol_CheckMark]=ImGui::ColorConvertU32ToFloat4(red);
         ImGui_ImplSDL2_InitForSDLRenderer(window,renderer);ImGui_ImplSDLRenderer2_Init(renderer);
-        logo=texture(fr::readImage(fr::executableFolder()/"Program_Icon.png"));updateCartridge();
+        logo=texture(fr::readImage(fr::assetFolder()/"Program_Icon.png"));updateCartridge();
         std::filesystem::create_directories(data);profile=fr::loadProfile(data/"profile.cfg");
         if(!romPath.empty())validate(romPath);else if(profile)validate(profile->romPath);snprintf(address.data(),address.size(),"127.0.0.1");
         while(!quit){@autoreleasepool {
