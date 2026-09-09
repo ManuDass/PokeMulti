@@ -16,7 +16,7 @@ for base in [16, 32, 128, 256, 512] {
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { fatalError("Icon allocation failed") }
         context.interpolationQuality = .none
         context.setShouldAntialias(false)
-        context.draw(image, in: CGRect(x: 0, y: 0, width: size, height: size))
+        context.draw(image, in: CGRect(x: 0, y: 0, width: CGFloat(size), height: CGFloat(size)))
         guard let output = context.makeImage(), let png = NSBitmapImageRep(cgImage: output).representation(using: .png, properties: [:]) else { fatalError("Icon encoding failed") }
         let name = "icon_\(base)x\(base)" + (scale == 2 ? "@2x" : "") + ".png"
         try png.write(to: folder.appendingPathComponent(name))

@@ -73,7 +73,7 @@ struct Launcher {
             if(profile){profile->romPath=path;profile->romSha256=checked.sha256;fr::saveProfile(data/"profile.cfg",*profile);refresh();page=Page::Worlds;}
             else{page=Page::Profile;setName("");}status="ROM verified. Stored locally.";
         }
-        if(game){int code=0;const auto done=waitpid(game,&code,WNOHANG);if(done==game){game=0;SDL_ShowWindow(window);SDL_RaiseWindow(window);gameFailed=!WIFEXITED(code)||WEXITSTATUS(code)!=0;page=gameFailed?(gameMode==2?Page::Join:Page::Host):Page::Worlds;refresh();status=gameFailed?"The game closed with an error. Open Settings > Runtime log for details.":"Your world is closed.";
+        if(game){int code=0;const auto done=waitpid(game,&code,WNOHANG);if(done==game){game=0;SDL_ShowWindow(window);SDL_RaiseWindow(window);gameFailed=!WIFEXITED(code)||WEXITSTATUS(code)!=0;page=gameFailed&&gameMode?(gameMode==2?Page::Join:Page::Host):Page::Worlds;refresh();status=gameFailed?"The game closed with an error. Open Settings > Runtime log for details.":"Your world is closed.";
             const auto notice=data/"world-return.txt";if(std::filesystem::exists(notice)&&std::filesystem::file_size(notice)<=900){std::ifstream in(notice);status.assign(std::istreambuf_iterator<char>(in),{});std::filesystem::remove(notice);}}}
     }
     void launch(int mode){
