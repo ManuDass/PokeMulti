@@ -1,5 +1,9 @@
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#else
+#include "platform/mac_network.hpp"
+#endif
 #include "online/session.hpp"
 #include <algorithm>
 #include <chrono>
@@ -12,7 +16,11 @@ void check(bool b,const char* message){if(!b)throw std::runtime_error(message);}
 template<class F>void until(F fn){for(int i=0;i<400;++i){if(fn())return;std::this_thread::sleep_for(std::chrono::milliseconds(10));}throw std::runtime_error("Chat operation timed out");}
 struct Wire {
  SOCKET socket=INVALID_SOCKET;
- Wire(uint16_t port){socket=::socket(AF_INET,SOCK_STREAM,0);sockaddr_in a{};a.sin_family=AF_INET;a.sin_port=htons(port);inet_pton(AF_INET,"127.0.0.1",&a.sin_addr);check(connect(socket,reinterpret_cast<sockaddr*>(&a),sizeof(a))==0,"Connect raw client");}
+ Wire(uint16_t port){socket=::socket(AF_INET,SOCK_STREAM,0);
+#ifndef _WIN32
+ int noSigPipe=1;setsockopt(socket,SOL_SOCKET,SO_NOSIGPIPE,&noSigPipe,sizeof(noSigPipe));
+#endif
+ sockaddr_in a{};a.sin_family=AF_INET;a.sin_port=htons(port);inet_pton(AF_INET,"127.0.0.1",&a.sin_addr);check(connect(socket,reinterpret_cast<sockaddr*>(&a),sizeof(a))==0,"Connect raw client");}
  ~Wire(){if(socket!=INVALID_SOCKET)closesocket(socket);}
  static std::string text(const std::string& s){return std::string(1,char(s.size()))+s;}
  void packet(unsigned type,std::string body){std::string b="FRMP";b+=char(RoomProtocolVersion);b+=char(type);b+=char(body.size()&255);b+=char(body.size()>>8);b+=body;check(send(socket,b.data(),int(b.size()),0)==int(b.size()),"Send raw packet");}
