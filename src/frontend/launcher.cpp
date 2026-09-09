@@ -246,7 +246,7 @@ void Launcher::layout() {
         button(Details,L"ROM details & verification",D2D1::RectF(472,240,960,287));
         button(Probe,L"Open runtime log",D2D1::RectF(472,300,960,347),false,!busy_);
         button(Fullscreen,fullscreen_ ? L"Windowed mode  /  F11" : L"Borderless fullscreen  /  F11",D2D1::RectF(472,360,960,407));
-        button(Browse,L"Change ROM & profile",D2D1::RectF(472,420,960,467),false,!busy_);
+        button(Browse,L"Change ROM",D2D1::RectF(472,420,960,467),false,!busy_);
         button(Back,L"Back to menu",D2D1::RectF(472,487,708,534),true);
         button(Updates,L"Update program",D2D1::RectF(724,487,960,534));
     }
@@ -487,7 +487,7 @@ void Launcher::pollValidation() {
     if (!result.error.empty() || !result.report.supported() || (!expectedHash_.empty() && expectedHash_ != result.report.sha256)) {
         const auto reason = !result.error.empty() ? result.error : !result.report.supported() ? describe(result.report)
             : "The ROM at your saved path has changed. Select it again to verify a new profile.";
-        status_ = L"ROM validation failed. Select a supported FireRed ROM.";
+        status_ = L"ROM validation failed. Select a supported FireRed or LeafGreen ROM.";
         if (!expectedHash_.empty()) { profile_.reset(); validated_.reset(); page_ = Page::Welcome; }
         expectedHash_.clear();
         layout(); error(reason); return;

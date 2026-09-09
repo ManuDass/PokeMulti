@@ -16,12 +16,12 @@ uint32_t walletReceiptPhase(const std::string& id){
 bool safeWallet(){return local.active&&bus()&&!r32(0x03003f64)&&validRam(r32(0x03005008),0x3d68)&&validRam(r32(0x0300500c),0xf24)&&r8(0x02024029)>0&&r8(0x02024029)<=6&&!replaying()&&(r32(0x030030f4)&~1u)==addresses.overworld&&r8(0x03000ea8)==2&&!r8(0x03000f9c)&&!(r8(0x02037abf)&0x80);}
 void walletSave(uint32_t balance,uint32_t phase){
     const auto save=r32(0x03005008);const auto hash=walletHash(walletJournal.id);
-    callGuest(0x0809fd70+codeOffset(),save+0x290,balance);
+    callGuest(gameAddress(0x0809fd70),save+0x290,balance);
     // A transaction receipt in FireRed's unused 16-byte save field makes a
     // native save + sidecar recovery idempotent across a crash between writes.
     bus()->write32(save+0x3d24,WalletReceipt);bus()->write32(save+0x3d28,uint32_t(hash));bus()->write32(save+0x3d2c,uint32_t(hash>>32));bus()->write32(save+0x3d30,phase);
     prepareNativeFieldSave();
-    if(callGuest(0x080da364+codeOffset(),0,0,0,0,0,20000000)!=1)throw std::runtime_error("Native wager save failed; the deposit was not acknowledged");
+    if(callGuest(gameAddress(0x080da364),0,0,0,0,0,20000000)!=1)throw std::runtime_error("Native wager save failed; the deposit was not acknowledged");
     walletPendingSave=phase;walletMessage="Saving wager money...";
 }
 void synchronizeWallet(){
@@ -95,7 +95,7 @@ void synchronizeWallet(){
     // Only the original linked battle can settle a wager. NPC/wild battles,
     // stale outcomes and screenshots cannot report a result.
     const auto main=r32(0x030030f4)&~1u;const auto outcome=r8(0x02023e8a);
-    if((r32(0x02022b4c)&2)&&main==0x08011100+codeOffset()&&!outcome){
+    if((r32(0x02022b4c)&2)&&main==gameAddress(0x08011100)&&!outcome){
         walletBattleSeen=true;if(!w.began[side]&&tick>walletSent+500){room->wagerEvent(w.id,2);walletSent=tick;}
     }
     if(walletBattleSeen&&w.began[side]&&!w.outcome[side]&&outcome&&tick>walletSent+500){

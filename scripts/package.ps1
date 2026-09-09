@@ -37,7 +37,7 @@ foreach ($file in Get-ChildItem -LiteralPath $resolvedPackage -File -Recurse) {
         try {
             $header = New-Object byte[] 192
             [void]$stream.Read($header,0,$header.Length)
-            if ([Text.Encoding]::ASCII.GetString($header,172,4) -eq 'BPRE') { throw "ROM content in install: $relative" }
+            if ([Text.Encoding]::ASCII.GetString($header,172,4) -in @('BPRE','BPGE')) { throw "ROM content in install: $relative" }
         } finally { $stream.Dispose() }
     }
     $manifest += [ordered]@{path=$relative; bytes=$file.Length; sha256=(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}

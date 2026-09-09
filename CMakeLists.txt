@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(PokeMulti VERSION 0.26.2 LANGUAGES C CXX)
+project(PokeMulti VERSION 0.26.3 LANGUAGES C CXX)
 configure_file(src/platform/version.hpp.in generated/platform/version.hpp @ONLY)
 if(NOT WIN32)
   message(FATAL_ERROR "PokeMulti currently requires Windows.")
@@ -39,7 +39,7 @@ if(BUILD_TESTING)
   find_program(FR_POWERSHELL powershell REQUIRED)
   add_test(NAME launcher_updates COMMAND "${FR_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/tests/updater_tests.ps1" -Helper "${CMAKE_SOURCE_DIR}/tools/update.ps1")
 endif()
-install(FILES docs/WORLDS.md docs/MULTIPLAYER.md docs/CAMPAIGN.md docs/POKE_BALL_PLUS.md
+install(FILES docs/ROM_SUPPORT.md docs/WORLDS.md docs/MULTIPLAYER.md docs/CAMPAIGN.md docs/POKE_BALL_PLUS.md
   docs/BATTLE_PRESENTATION.md docs/RELEASED_POKEMON.md docs/UI_ASSETS.md docs/THIRD_PARTY.md DESTINATION docs)
 
 add_executable(firered_game src/runtime/game_main.cpp src/game/world.cpp)

@@ -9,7 +9,7 @@ Packaged launcher checks cover profile creation and rename, world selection,
 host settings, native game startup, clean shutdown and return to the launcher.
 Two packaged sessions also passed host/join, rejected-key recovery and host-loss
 return checks. Native acceptance checks passed private checkpoints, cold reconnect,
-trade invitations and abrupt host-loss handling. A real 0.26.0-to-0.26.2 update
+trade invitations and abrupt host-loss handling. A real 0.26.0-to-0.26.3 update
 verified every installed file and restarted with the same disposable profile.
 The Windows setup wizard was installed into a separate folder; installed files
 matched the package manifest, the game launched successfully, and uninstalling
@@ -24,7 +24,20 @@ Previous local gameplay checks established FireRed US 1.0 boot/save/reload,
 visible encounters, multiplayer rendering, real Cable Club battles and trades,
 host-owned checkpoints and supported shared-story retries.
 
-These results do not establish complete campaign coverage. US 1.1 gameplay,
+LeafGreen US v1.1 was booted from the supplied ZIP into a new game, without
+reusing a FireRed savestate. Native checks cover visible wild encounters, camp
+placement/movement/packing, Route 22 loss and friend takeover through shared
+completion, private world checkpoints, cold reconnects, chat, trade invitations
+and host-loss return. FireRed US v1.0 passed the world-persistence regression.
+
+The hook audit verifies 188 ROM addresses and 61 RAM references against four
+published symbol layouts. Forged LeafGreen headers still fail full-image hash
+validation. Real packaged clients verified matching LeafGreen joins and visible
+FireRed/LeafGreen mismatch rejection before checkpoint transfer. The supplied
+LeafGreen art matches the installed file byte-for-byte.
+
+These results do not establish complete campaign coverage. FireRed US v1.1 and
+LeafGreen US v1.0 real-game acceptance,
 cross-PC/WAN cable timing, unusual field effects and full playthroughs need more
 testing. Native compilation retains instruction fallback. Crashes can lose work
 since the last completed safe checkpoint.

@@ -1,8 +1,10 @@
 ﻿"""Two isolated native clients: Camp hotkey, grass rules, party poses, packing and legacy display settings."""
 from pathlib import Path
+from native_fixture import local_field_state
 import subprocess,os,socket,time,json,re,shutil,uuid,argparse
-parser=argparse.ArgumentParser();parser.add_argument('--rom',required=True);parser.add_argument('--configuration',default='Release-0.24.2');parser.add_argument('--route1',action='store_true');a=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--rom',required=True);parser.add_argument('--configuration',default='Release-0.24.2');parser.add_argument('--route1',action='store_true');parser.add_argument('--state',type=Path,help='Local field savestate made with this exact ROM');a=parser.parse_args()
 root=Path(__file__).resolve().parents[2];base=root/'cache'/('camp-native-'+uuid.uuid4().hex);base.mkdir();processes=[];sequence=10
+state=local_field_state(root,Path(a.rom).resolve(),a.state)
 print('Evidence: '+str(base),flush=True)
 def read(role,name='camp-check.txt'):
  try:return (base/role/name).read_text(encoding='utf-8')
@@ -76,7 +78,7 @@ try:
  sock=socket.socket();sock.bind(('127.0.0.1',0));port=sock.getsockname()[1];sock.close()
  for role in ['a','b']:
   folder=base/role;folder.mkdir();(folder/'world.cfg').write_text('1 1\n');(folder/'voxel.cfg').write_text('enabled 1\ncurve 3\ntiltShift 3\ncamera 4\nzoom 2\n');(folder/'test-keys.txt').write_text('1 0x3ff 6000\n');log=(folder/'runtime.log').open('w')
-  cmd=[str(root/'build'/a.configuration/'fr_game_harness.exe'),'--rom',str(Path(a.rom).resolve()),'--save',str(folder/'test.sav'),'--profile-dir',str(folder),'--name','Aster' if role=='a' else 'Leaf','--window','--test-ui','--test-report','--test-manual','--test-'+('host' if role=='a' else 'join'),str(port),'--load-state',str(root/'cache/runtime-check/cable-a.state'),'--fixture',('camp-route1'+('' if role=='a' else '-b')) if a.route1 else 'camp-'+role,'--frames','100000']
+  cmd=[str(root/'build'/a.configuration/'fr_game_harness.exe'),'--rom',str(Path(a.rom).resolve()),'--save',str(folder/'test.sav'),'--profile-dir',str(folder),'--name','Aster' if role=='a' else 'Leaf','--window','--test-ui','--test-report','--test-manual','--test-'+('host' if role=='a' else 'join'),str(port),'--load-state',str(state),'--fixture',('camp-route1'+('' if role=='a' else '-b')) if a.route1 else 'camp-'+role,'--frames','100000']
   processes.append(subprocess.Popen(cmd,cwd=root,stdout=log,stderr=log,env=dict(os.environ,SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy'),creationflags=subprocess.CREATE_NO_WINDOW))
   if role=='a':wait(lambda:'lawn=1' in read('a'),'Host lawn setup failed',100)
  wait(lambda:all('applied=1' in read(r,'shared-world.txt') and 'lawn=1' in read(r) for r in ['a','b']),'Two native campers failed setup',100)

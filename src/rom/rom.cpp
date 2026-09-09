@@ -60,9 +60,11 @@ std::vector<uint8_t> readRom(const std::filesystem::path& path) {
     return zip ? readZipRom(bytes) : bytes;
 }
 FireRedRevision identifyRevision(std::string_view sha1, uint8_t headerVersion) {
-    // Public metadata only: https://github.com/pret/pokefirered (firered*.sha1).
+    // Public metadata only: https://github.com/pret/pokefirered (firered*.sha1, leafgreen*.sha1).
     if (headerVersion == 0 && sha1 == "41cb23d8dccc8ebd7c649cd8fbb58eeace6e2fdc") return FireRedRevision::FireRed_US_10;
     if (headerVersion == 1 && sha1 == "dd5945db9b930750cb39d00c84da8571feebf417") return FireRedRevision::FireRed_US_11;
+    if (headerVersion == 0 && sha1 == "574fa542ffebb14be69902d1d36f1ec0a4afd71e") return FireRedRevision::LeafGreen_US_10;
+    if (headerVersion == 1 && sha1 == "7862c67bdecbe21d1d69ce082ce34327e1c6ed5e") return FireRedRevision::LeafGreen_US_11;
     return FireRedRevision::Unsupported;
 }
 RomReport inspectRom(std::span<const uint8_t> bytes) {
@@ -75,22 +77,24 @@ RomReport inspectRom(std::span<const uint8_t> bytes) {
     report.title = headerText(bytes, 0xA0, 12);
     report.gameCode = headerText(bytes, 0xAC, 4);
     report.headerVersion = bytes[0xBC];
-    if (bytes.size() != FireRedRomSize) { report.error = "Supported FireRed ROMs must be exactly 16 MiB. Select an uncompressed .gba file."; return report; }
-    if (report.gameCode != "BPRE" || report.title != "POKEMON FIRE" || bytes[0xB2] != 0x96 || bytes[0xB0] != '0' || bytes[0xB1] != '1') {
-        report.error = "This is not a supported English FireRed GBA ROM header."; return report;
+    if (bytes.size() != FireRedRomSize) { report.error = "Supported FireRed/LeafGreen ROMs must be exactly 16 MiB. Select a .gba file or a ZIP containing one ROM."; return report; }
+    if (!((report.gameCode == "BPRE" && report.title == "POKEMON FIRE") || (report.gameCode == "BPGE" && report.title == "POKEMON LEAF")) || bytes[0xB2] != 0x96 || bytes[0xB0] != '0' || bytes[0xB1] != '1') {
+        report.error = "This is not a supported English FireRed/LeafGreen GBA ROM header."; return report;
     }
     uint8_t checksum = 0;
     for (size_t i = 0xA0; i <= 0xBC; ++i) checksum = static_cast<uint8_t>(checksum - bytes[i]);
     checksum = static_cast<uint8_t>(checksum - 0x19);
     if (checksum != bytes[0xBD]) { report.error = "GBA header checksum is invalid. The ROM may be damaged."; return report; }
     report.revision = identifyRevision(report.sha1, report.headerVersion);
-    if (!report.supported()) report.error = "This FireRed ROM revision is not currently supported. Modified or damaged ROMs are not accepted.";
+    if (!report.supported()) report.error = "This ROM revision is not currently supported. Modified or damaged ROMs are not accepted.";
     return report;
 }
 std::string revisionName(FireRedRevision revision) {
     switch (revision) {
     case FireRedRevision::FireRed_US_10: return "FireRed US v1.0";
     case FireRedRevision::FireRed_US_11: return "FireRed US v1.1";
+    case FireRedRevision::LeafGreen_US_10: return "LeafGreen US v1.0";
+    case FireRedRevision::LeafGreen_US_11: return "LeafGreen US v1.1";
     default: return "Unsupported";
     }
 }
@@ -100,8 +104,8 @@ std::string describe(const RomReport& report) {
         << "\nSHA-256: " << report.sha256 << "\nSHA-1: " << report.sha1
         << "\nSize: " << report.size << " bytes\nHeader: " << report.title << " / " << report.gameCode
         << " / revision " << static_cast<unsigned>(report.headerVersion)
-        << "\nSupported identities: FireRed US v1.0, FireRed US v1.1."
-        << "\nIdentity support does not mean playable runtime support.";
+        << "\nSupported identities: FireRed and LeafGreen US v1.0/v1.1."
+        << "\nMultiplayer requires the same game and ROM revision as the host.";
     return out.str();
 }
 }

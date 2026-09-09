@@ -21,7 +21,7 @@ namespace fr::online {
 namespace {
 using Bytes=std::vector<uint8_t>;
 using Clock=std::chrono::steady_clock;
-enum Type:uint8_t {Hello=1,Welcome=2,State=3,Snapshot=4,Invite=5,Reply=6,CableOff=7,Ready=8,SerialStart=9,SerialReply=10,Notice=11,Motion=12,ChatSend=13,ChatBroadcast=14,WorldUpdate=15,WorldSnapshot=16,StoryUpdate=17,StorySnapshot=18,EncounterClaim=19,EncounterResult=20,EncounterRelease=21,EncounterSnapshot=22,WalletUpdate=23,WagerSnapshot=24,WagerEvent=25,CampSnapshot=26,BattleSnapshot=27,ReleasedOffer=28,ReleasedClaim=29,ReleasedFinish=30,ReleasedSnapshot=31,ReleasedResult=32,CampaignSnapshot=33,BattleStage=34,InvitationCancel=35,EncounterCheckpoint=36,Membership=37,DepartureEvent=38,PlayerCheckpoint=39,CheckpointAck=40,CheckpointRequest=41};
+enum Type:uint8_t {Hello=1,Welcome=2,State=3,Snapshot=4,Invite=5,Reply=6,CableOff=7,Ready=8,SerialStart=9,SerialReply=10,Notice=11,Motion=12,ChatSend=13,ChatBroadcast=14,WorldUpdate=15,WorldSnapshot=16,StoryUpdate=17,StorySnapshot=18,EncounterClaim=19,EncounterResult=20,EncounterRelease=21,EncounterSnapshot=22,WalletUpdate=23,WagerSnapshot=24,WagerEvent=25,CampSnapshot=26,BattleSnapshot=27,ReleasedOffer=28,ReleasedClaim=29,ReleasedFinish=30,ReleasedSnapshot=31,ReleasedResult=32,CampaignSnapshot=33,BattleStage=34,InvitationCancel=35,EncounterCheckpoint=36,Membership=37,DepartureEvent=38,PlayerCheckpoint=39,CheckpointAck=40,CheckpointRequest=41,JoinRejected=42};
 void byte(Bytes& b,unsigned v){b.push_back(uint8_t(v));}
 void word(Bytes& b,unsigned v){byte(b,v);byte(b,v>>8);}
 void dword(Bytes& b,uint32_t v){word(b,v);word(b,v>>16);}
@@ -117,11 +117,12 @@ std::string randomId(){
     for(auto b:bytes){result+=hex[b>>4];result+=hex[b&15];}return result;
 }
 struct Session::Impl {
-    struct Connection {WSAEVENT event=WSA_INVALID_EVENT;SOCKET socket=INVALID_SOCKET;int slot=-1;Bytes input,output;size_t sent=0;Clock::time_point seen=Clock::now();};
+    struct Connection {WSAEVENT event=WSA_INVALID_EVENT;SOCKET socket=INVALID_SOCKET;int slot=-1;Bytes input,output;size_t sent=0;bool closing=false;Clock::time_point seen=Clock::now();};
     struct Command {Type type;Bytes body;};
     struct Serial {int from;uint32_t sequence;uint16_t word;uint32_t elapsed=0;};
     mutable std::mutex mutex;std::condition_variable changed;
     std::thread worker;std::atomic<bool> quit{false},incomingSerial{false};
+    bool joinRejected=false;
     Status current;std::string identity,name,key,ip;game::PlayerState local{};
     std::vector<Connection> connections;SOCKET listener=INVALID_SOCKET;
     WSAEVENT listenerEvent=WSA_INVALID_EVENT;HANDLE wake=nullptr;
@@ -216,6 +217,9 @@ struct Session::Impl {
         if(c.output.size()-c.sent>524288)throw std::runtime_error("Slow peer exceeded room queue limit");
         if(c.sent){c.output.erase(c.output.begin(),c.output.begin()+c.sent);c.sent=0;}
         auto p=packet(type,body);c.output.insert(c.output.end(),p.begin(),p.end());SetEvent(wake);
+    }
+    void rejectJoin(Connection& c,const std::string& message){
+        Bytes b;string(b,message);queue(c,JoinRejected,b);c.closing=true;
     }
     void sendTo(int slot,Type type,const Bytes& body){
         if(slot==current.slot){receive(type,body,-1);return;}
@@ -387,6 +391,10 @@ struct Session::Impl {
             if(!current.chat.empty()&&m.sequence<=current.chat.back().sequence)throw std::runtime_error("Out-of-order chat message");
             remember(std::move(m));return;
         }
+        if(type==JoinRejected){
+            if(current.connected)throw std::runtime_error("Unexpected join rejection.");
+            current.message=r.str();r.end();joinRejected=true;quit=true;changed.notify_all();return;
+        }
         if(type==Welcome){current.slot=int(r.u8());current.rewardPolicy=uint8_t(r.u8());current.capacity=uint8_t(r.u8());const auto managed=r.u8();current.managedWorld=managed==1;current.worldId=r.str();current.worldName=r.str();r.end();if(managed>1||(!expectedRom.empty()&&!current.managedWorld)||(current.managedWorld&&!worldIdValid(current.worldId)))throw std::runtime_error("Invalid world session.");if(current.capacity<2||current.capacity>MaxRoomPlayers)throw std::runtime_error("Invalid player limit");if(current.rewardPolicy>game::AllRewardSharing)throw std::runtime_error("Invalid reward policy");if(current.slot<1||current.slot>=MaxRoomPlayers)throw std::runtime_error("Invalid room slot");current.connected=true;current.message="Connected to room.";return;}
         if(type==Motion){const int slot=int(r.u8());auto p=player(r);r.end();if(slot<0||slot>=MaxRoomPlayers)throw std::runtime_error("Invalid motion slot");if(auto* who=peer(slot))who->player=p;return;}
         if(type==Snapshot){
@@ -421,17 +429,18 @@ struct Session::Impl {
         const int slot=connections[index].slot;closeConnection(connections[index]);
         connections.erase(connections.begin()+index);
         if(current.hosting){if(slot>=0){if(auto* p=peer(slot)){membership(*p,2);wagers.cancel(p->id);}emitWagers();wallets[slot]={};pending[slot]={};worldAuthority.leave(unsigned(slot));emitLeases();emitCamps();emitBattles();clearCable(slot);std::erase_if(current.peers,[&](const Peer& p){return p.slot==slot;});for(auto& p:pending)if(p.from==slot)p.from=-1;emitSnapshot();}}
-        else{current.connected=false;current.message="Disconnected from host.";current.peers.clear();changed.notify_all();quit=true;}
+        else{current.connected=false;if(!joinRejected)current.message="Disconnected from host.";current.peers.clear();changed.notify_all();quit=true;}
     }
     void consume(Connection& c,Type type,const Bytes& payload){
         if(current.hosting&&c.slot<0){
             if(type!=Hello)throw std::runtime_error("Join handshake required");
             Reader r{payload};const auto candidateKey=r.str(),id=r.str(),trainerName=r.str(),romHash=r.str(),secret=r.str();r.end();
-            if(candidateKey!=key||!validIdentity(id,trainerName))throw std::runtime_error("Invalid room key or identity");
-            if(std::any_of(current.peers.begin(),current.peers.end(),[&](const Peer& p){return p.id==id;}))throw std::runtime_error("Trainer is already in room");
-            int slot=1;while(slot<current.capacity&&peer(slot))++slot;if(slot>=current.capacity)throw std::runtime_error("Room is full");
-            if(worldPlayers&&(romHash!=expectedRom||!worldPlayers->authenticate(id,secret)))throw std::runtime_error("Cartridge or world player identity does not match.");
-            if(!worldPlayers&&!romHash.empty())throw std::runtime_error("The host must select a saved world in the launcher.");
+            if(candidateKey!=key||!validIdentity(id,trainerName)){rejectJoin(c,"Room key or trainer identity is incorrect.");return;}
+            if(std::any_of(current.peers.begin(),current.peers.end(),[&](const Peer& p){return p.id==id;})){rejectJoin(c,"This trainer is already in the room.");return;}
+            int slot=1;while(slot<current.capacity&&peer(slot))++slot;if(slot>=current.capacity){rejectJoin(c,"This room is full.");return;}
+            if(worldPlayers&&romHash!=expectedRom){rejectJoin(c,"ROM mismatch. Choose the same game and ROM revision as the host (FireRed or LeafGreen).");return;}
+            if(worldPlayers&&!worldPlayers->authenticate(id,secret)){rejectJoin(c,"This trainer's world identity does not match. Use the original player profile.");return;}
+            if(!worldPlayers&&!romHash.empty()){rejectJoin(c,"The host must select a saved world in the launcher.");return;}
             transfers[slot]={};c.slot=slot;lastChat[slot]=0;Peer p;p.slot=uint8_t(slot);p.id=id;p.name=trainerName;p.chatAfter=chatSequence;current.peers.push_back(p);
             Bytes b;byte(b,unsigned(slot));byte(b,current.rewardPolicy);byte(b,current.capacity);byte(b,current.managedWorld);string(b,current.worldId);string(b,current.worldName);queue(c,Welcome,b);emitSnapshot();emitStory(worldAuthority.snapshot().story);emitLeases();emitCamps();emitBattles();emitWagers();emitReleased();emitCampaign();membership(p,1);if(worldPlayers)sendCheckpoint(slot,1,worldPlayers->load(id));return;
         }
@@ -463,7 +472,7 @@ struct Session::Impl {
                         if(c.input.size()>65536||Clock::now()-c.seen>std::chrono::seconds(c.slot<0&&current.hosting?5:15))bad=true;
                         try{
                             unsigned handled=0;
-                            while(!bad&&c.input.size()>=8&&handled++<64){
+                            while(!bad&&!c.closing&&c.input.size()>=8&&handled++<64){
                                 if(c.input[0]!='F'||c.input[1]!='R'||c.input[2]!='M'||c.input[3]!='P'||c.input[4]!=RoomProtocolVersion)throw std::runtime_error("Incompatible room protocol");
                                 const size_t length=size_t(c.input[6])|(size_t(c.input[7])<<8);if(length>16384)throw std::runtime_error("Oversized room packet");
                                 if(c.input.size()<8+length)break;
@@ -473,7 +482,7 @@ struct Session::Impl {
                             if(!bad&&c.sent<c.output.size()){
                                 const int sent=send(c.socket,reinterpret_cast<const char*>(c.output.data()+c.sent),int(c.output.size()-c.sent),0);
                                 if(sent>0)c.sent+=size_t(sent);else if(sent==SOCKET_ERROR&&WSAGetLastError()!=WSAEWOULDBLOCK)bad=true;
-                                if(c.sent==c.output.size()){c.output.clear();c.sent=0;}
+                                if(c.sent==c.output.size()){c.output.clear();c.sent=0;if(c.closing)bad=true;}
                             }
                         }catch(const std::exception& e){current.message=e.what();bad=true;}
                         if(bad)disconnect(i);else ++i;
@@ -515,7 +524,7 @@ struct Session::Impl {
         if(!textSafe(roomKey,64)||roomKey.size()<8)throw std::runtime_error("Use a room key of 8 to 64 characters.");
         wallets={};invitationSequence=0;if(host)wagers.open(accountFolder.empty()?std::filesystem::path{}:accountFolder/"wagers-host.cfg");
         releaseBroadcasts.clear();releaseReplies.clear();releaseFlushed=0;if(host)releaseBook.open(accountFolder.empty()?std::filesystem::path{}:accountFolder/"released-world.cfg");
-        current={};if(host)current.released=releaseBook.records();current.rewardPolicy=rewards;current.capacity=capacity;current.managedWorld=host&&bool(worldPlayers);if(worldPlayers){current.worldId=worldPlayers->world().id;current.worldName=worldPlayers->world().name;current.checkpointReady=true;}transfers={};committedRequests={};downloadedCheckpoint.clear();saveSequence=0;worldAuthority={};worldAuthority.rewardRules(rewards);localWorld={};worldSent=0;claims.clear();waitingClaim=0;lastChat={};submittedChat=0;chatSequence=0;current.hosting=host;current.localWorld=host&&address=="offline";current.port=port;current.running=true;key=roomKey;quit=false;
+        current={};joinRejected=false;if(host)current.released=releaseBook.records();current.rewardPolicy=rewards;current.capacity=capacity;current.managedWorld=host&&bool(worldPlayers);if(worldPlayers){current.worldId=worldPlayers->world().id;current.worldName=worldPlayers->world().name;current.checkpointReady=true;}transfers={};committedRequests={};downloadedCheckpoint.clear();saveSequence=0;worldAuthority={};worldAuthority.rewardRules(rewards);localWorld={};worldSent=0;claims.clear();waitingClaim=0;lastChat={};submittedChat=0;chatSequence=0;current.hosting=host;current.localWorld=host&&address=="offline";current.port=port;current.running=true;key=roomKey;quit=false;
         if(host){
             campaign.open(accountFolder,freshCampaign);
             if(campaign.ready()){const auto saved=campaign.baseline(rewards);for(size_t i=0;i<saved.size();i+=128)worldAuthority.story(0,{saved.begin()+i,saved.begin()+std::min(saved.size(),i+128)},true,i+128>=saved.size());}
@@ -656,7 +665,7 @@ bool Session::cableStartTimed(uint16_t value,uint32_t elapsed,std::array<uint16_
     Bytes b;byte(b,unsigned(partner));dword(b,sequence);word(b,value);dword(b,elapsed);impl_->command(SerialStart,std::move(b));
     const bool ok=impl_->changed.wait_for(lock,std::chrono::seconds(15),[&]{const auto* currentSelf=impl_->peer(impl_->current.slot);const auto* currentOther=impl_->peer(partner);return impl_->quit||impl_->responses.contains(sequence)||!impl_->current.connected||!currentSelf||currentSelf->partner!=partner||!currentOther||!currentOther->cableReady||(clockAtStart&&!currentOther->cableClock);});
     auto found=impl_->responses.find(sequence);
-    if(!ok||found==impl_->responses.end()){impl_->current.message=ok?"Link port reset; waiting for the game to reconnect.":"Link timed out. FireRed will report a communication error.";return false;}
+    if(!ok||found==impl_->responses.end()){impl_->current.message=ok?"Link port reset; waiting for the game to reconnect.":"Link timed out. The game will report a communication error.";return false;}
     out={value,found->second,0xffff,0xffff};impl_->responses.erase(found);
     if(impl_->current.message.starts_with("Link timed out")||impl_->current.message.starts_with("Link port reset"))impl_->current.message="Cable active; transfer recovered.";
     return true;
@@ -695,7 +704,7 @@ bool Session::cableAwait(uint16_t value,std::array<uint16_t,4>& out){
         if(!self||self->partner<0||self->slot<self->partner)return false;
         const int partner=self->partner;
         if(!impl_->changed.wait_for(lock,std::chrono::seconds(15),[&]{const auto* currentSelf=impl_->peer(impl_->current.slot);return impl_->quit||!impl_->requests.empty()||!impl_->current.connected||!currentSelf||currentSelf->partner!=partner;})){
-            impl_->current.message="Link timed out. FireRed will report a communication error.";return false;
+            impl_->current.message="Link timed out. The game will report a communication error.";return false;
         }
     }
     return cablePoll(value,out);

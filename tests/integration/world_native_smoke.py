@@ -1,13 +1,15 @@
 """Isolated host-world persistence, nearby T trade, cold reconnect and host-loss acceptance."""
 from pathlib import Path
+from native_fixture import local_field_state
 import argparse,hashlib,json,os,re,socket,subprocess,time,uuid,zipfile
-ap=argparse.ArgumentParser();ap.add_argument('--rom',required=True);ap.add_argument('--configuration',default='Release-0.25.0');args=ap.parse_args()
+ap=argparse.ArgumentParser();ap.add_argument('--rom',required=True);ap.add_argument('--configuration',default='Release-0.25.0');ap.add_argument('--state',type=Path,help='Local field savestate made with this exact ROM');args=ap.parse_args()
 root=Path(__file__).resolve().parents[2];base=root/'cache'/('world-native-'+uuid.uuid4().hex[:12]);base.mkdir();rom=Path(args.rom).resolve()
 data=zipfile.ZipFile(rom).read(next(n for n in zipfile.ZipFile(rom).namelist() if n.lower().endswith('.gba'))) if rom.suffix.lower()=='.zip' else rom.read_bytes()
 worldid=uuid.uuid4().hex;world=base/'worlds'/worldid;world.mkdir(parents=True);(world/'world.cfg').write_text(f'PMWORLD1 "{worldid}" "Test world" "{hashlib.sha256(data).hexdigest()}"\n')
 ids={r:uuid.uuid4().hex for r in ['a','b']};runtime={};processes={};logs=[]
 for r in ids:(base/r).mkdir();(base/r/'identity.cfg').write_text(ids[r]);(base/r/'identity.key').write_text(uuid.uuid4().hex)
 sock=socket.socket();sock.bind(('127.0.0.1',0));port=sock.getsockname()[1];sock.close()
+state=local_field_state(root,Path(args.rom).resolve(),args.state)
 print('Evidence: '+str(base),flush=True)
 def read(r,file='link-check.txt',ui=False):
  try:return ((base/r) if ui else runtime[r]).joinpath(file).read_text(encoding='utf-8')
@@ -39,7 +41,7 @@ def start(r,cold=False):
  log=(base/r/('cold.log' if cold else 'first.log')).open('w');logs.append(log)
  cmd=[str(root/'build'/args.configuration/'fr_game_harness.exe'),'--rom',str(rom),'--save',str(base/r/'bootstrap.sav'),'--profile-dir',str(base/r),'--identity-dir',str(base/r),'--name','Aster' if r=='a' else 'Leaf','--window','--test-ui','--test-report','--test-manual','--room-port',str(port),'--room-key','world-native-key','--capacity','8','--online','host' if r=='a' else 'join','--frames','100000']
  cmd+=['--world-dir',str(world)] if r=='a' else ['--join-address','127.0.0.1']
- if not cold:cmd+=['--load-state',str(root/'cache/runtime-check/cable-a.state'),'--fixture','field-'+r]
+ if not cold:cmd+=['--load-state',str(state),'--fixture','field-'+r]
  old=set((base/r/'guest-cache'/worldid).glob('*')) if r=='b' else set()
  processes[r]=subprocess.Popen(cmd,cwd=root,stdout=log,stderr=log,env=dict(os.environ,SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy'),creationflags=subprocess.CREATE_NO_WINDOW)
  if r=='b':

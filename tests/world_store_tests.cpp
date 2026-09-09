@@ -28,6 +28,12 @@ int main(){try{
     const auto serial=guest.storeCheckpoint(second);until([&]{return guest.status().checkpointAck==serial;});check(players.load(id)==second,"Receipt follows durable host commit");
     host.requestWorldSave();until([&]{return guest.status().checkpointRequest==1;});
     guest.stop();until([&]{return host.status().peers.size()==1;});
+    Session mismatch(worldRandomId(),"LeafGreen guest");mismatch.configureWorld({},std::string(64,'b'),worldRandomId());
+    mismatch.join("127.0.0.1",port,"world-test-key");until([&]{return !mismatch.status().running;});
+    check(mismatch.status().message.find("ROM mismatch")!=std::string::npos&&mismatch.downloadedSave().empty(),"Different ROM refused clearly before downloading a save");
+    check(host.status().peers.size()==1&&host.status().running,"ROM rejection preserves room");
+    Session wrongKey(worldRandomId(),"Guest");wrongKey.configureWorld({},hash,worldRandomId());wrongKey.join("127.0.0.1",port,"wrong-room-key");until([&]{return !wrongKey.status().running;});
+    check(wrongKey.status().message.find("key")!=std::string::npos,"Wrong-key feedback preserved");
     Session imposter(id,"Guest");imposter.configureWorld({},hash,worldRandomId());imposter.join("127.0.0.1",port,"world-test-key");until([&]{return !imposter.status().running;});check(host.status().running,"Wrong credential refused without stopping host");
     guest.join("127.0.0.1",port,"world-test-key");until([&]{return guest.status().checkpointReady;});check(guest.downloadedSave()==second,"Reconnect downloads host checkpoint, ignoring local continuation");
     host.stop();until([&]{return !guest.status().running;});
@@ -35,7 +41,7 @@ int main(){try{
     std::vector<std::unique_ptr<Session>> clients;
     for(unsigned i=1;i<32;++i){auto c=std::make_unique<Session>(worldRandomId(),"Trainer "+std::to_string(i));c->join("127.0.0.1",port,"capacity-test-key");clients.push_back(std::move(c));}
     until([&]{return many.status().peers.size()==32&&clients.back()->status().peers.size()==32;});check(clients.back()->status().capacity==32,"32 negotiated room slots");
-    Session full(worldRandomId(),"Overflow");full.join("127.0.0.1",port,"capacity-test-key");until([&]{return !full.status().running;});check(many.status().peers.size()==32,"Selected capacity enforced");
+    Session full(worldRandomId(),"Overflow");full.join("127.0.0.1",port,"capacity-test-key");until([&]{return !full.status().running;});check(many.status().peers.size()==32,"Selected capacity enforced");check(full.status().message.find("full")!=std::string::npos,"Room-full feedback preserved");
     const auto last=clients.back()->id();clients.back()->stop();until([&]{return many.status().peers.size()==31;});
     auto state=many.status();check(std::any_of(state.chat.begin(),state.chat.end(),[&](const auto& m){return m.kind==2&&m.id==last&&m.text=="Trainer 31 left server";}),"Host-authored leave notice");
     many.stop();for(auto& c:clients)c->stop();

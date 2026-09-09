@@ -25,7 +25,7 @@ bool campLawn(int x,int y){
     const unsigned id=value&1023;const auto primary=r32(layout+16);
     const auto tileset=r32(layout+(id<640?16:20));if(!validRom(tileset,24))return false;
     const auto attr=r32(tileset+20)+4*(id<640?id:id-640);if(!validRom(attr,4))return false;
-    return campGrass(r8(0x02036dfc+23),r8(0x02036dfc+21)!=0,primary==0x082d4a94u+(codeOffset()?0x70u:0u),value,uint16_t(r32(attr)&511),local.elevation);
+    return campGrass(r8(0x02036dfc+23),r8(0x02036dfc+21)!=0,primary==gameAddress(0x082d4a94),value,uint16_t(r32(attr)&511),local.elevation);
 }
 bool campEventTile(int x,int y){
     const auto events=r32(0x02036e00);if(!validRom(events,20))return true;
@@ -52,7 +52,7 @@ void loadCampArt(){
 }
 std::vector<uint16_t> campParty(){
     std::vector<uint16_t> party;const unsigned count=r8(0x02024029);if(count>6)return party;
-    for(unsigned i=0;i<count;++i){const auto mon=0x02024284+i*100;const auto species=callGuest(0x0803fbe8+codeOffset(),mon,11);const auto egg=callGuest(0x0803fbe8+codeOffset(),mon,45);
+    for(unsigned i=0;i<count;++i){const auto mon=0x02024284+i*100;const auto species=callGuest(gameAddress(0x0803fbe8),mon,11);const auto egg=callGuest(gameAddress(0x0803fbe8),mon,45);
         if(species&&species<=411&&!egg)party.push_back(uint16_t(species));}
     return party;
 }

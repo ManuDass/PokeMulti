@@ -1,8 +1,8 @@
 # Launcher usernames and updates
 
-Choose **Edit username** in the launcher header to change your online name. This
+Choose **Edit** in the launcher header to change your online name. This
 changes the label used in rooms, chat, overhead names and friends lists. Your
-stable trainer identity, world ownership, party, money and FireRed's narrative
+stable trainer identity, world ownership, party, money and the game's narrative
 trainer name are unchanged. Friends see the new name the next time you share a
 room; their saved friend entry is refreshed without adding a second friend.
 
@@ -28,7 +28,7 @@ Work files and the previous program files are kept under the selected profile's
 This is a file-replacement rollback, not a snapshot of live gameplay; updates are
 installed only after the launcher exits and other sessions have closed.
 
-Users on 0.25.0 or earlier need to install 0.26.0 once to obtain the updater.
+Users on 0.25.0 or earlier need to install the latest version once to obtain the updater.
 Subsequent releases can be installed from inside the launcher. No GitHub login
 is required to download public updates. Offline/network-limit messages leave
 the current program usable.

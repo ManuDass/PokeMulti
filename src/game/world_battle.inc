@@ -31,7 +31,7 @@ void beginBattlePresence(uint16_t enemy,uint32_t wildId,const PlayerState* encou
     unsigned ours=0,theirs=0;
     for(unsigned position=0;position<count;++position){const bool foe=position&1;if(!foe&&safari)continue;uint16_t species=foe?enemy:0;
         auto& slot=foe?theirs:ours;const unsigned partyCount=foe?6:std::min(6u,unsigned(r8(0x02024029)));const auto base=foe?0x0202402cu:0x02024284u;
-        while(!species&&slot<partyCount&&!(foe&&(flags&8))){const auto mon=base+100*slot++;if(!r16(mon+86))continue;const auto candidate=callGuest(0x0803fbe8+codeOffset(),mon,11);if(candidate&&candidate<=411&&!callGuest(0x0803fbe8+codeOffset(),mon,45))species=uint16_t(candidate);}
+        while(!species&&slot<partyCount&&!(foe&&(flags&8))){const auto mon=base+100*slot++;if(!r16(mon+86))continue;const auto candidate=callGuest(gameAddress(0x0803fbe8),mon,11);if(candidate&&candidate<=411&&!callGuest(gameAddress(0x0803fbe8),mon,45))species=uint16_t(candidate);}
         BattleMon mon{uint8_t(position),species,localBattle.trainer.pixelX,localBattle.trainer.pixelY,pose.facing,species!=0};
         if(!foe&&position==0&&pose.followerVisible&&pose.follower==species){mon.x=pose.followerX;mon.y=pose.followerY;mon.facing=pose.followerFacing;mon.frame=pose.followerFrame;}
         else if(foe&&position==1&&encounterPose){mon.x=encounterPose->pixelX;mon.y=encounterPose->pixelY;mon.facing=encounterPose->followerFacing;mon.frame=encounterPose->followerFrame;}
@@ -48,11 +48,11 @@ int battleStartHook(uint32_t,int,ArmCpuState*){if(!guestCall){checkpointStoryBat
 void updateBattlePresence(){
 #ifdef FR_TEST_HARNESS
     if(localBattle.id&&battleEntered){static uint32_t testSequence=0;std::ifstream input(diagnosticPath.parent_path()/"test-battle-command.txt");uint32_t seq=0,value=0;std::string action;
-        if(input>>seq>>action>>value&&seq!=testSequence){testSequence=seq;if(action=="money"&&value<=online::MoneyLimit)callGuest(0x0809fd70+codeOffset(),r32(0x03005008)+0x290,value);}
+        if(input>>seq>>action>>value&&seq!=testSequence){testSequence=seq;if(action=="money"&&value<=online::MoneyLimit)callGuest(gameAddress(0x0809fd70),r32(0x03005008)+0x290,value);}
     }
 #endif
     if(localBattle.id){
-        const auto main=bus()?r32(0x030030f4)&~1u:0;const bool battle=main==0x08011100+codeOffset();
+        const auto main=bus()?r32(0x030030f4)&~1u:0;const bool battle=main==gameAddress(0x08011100);
         if(replaying()||(nativeLinkScene()&&!fieldBattleActive)||(battleEntered&&local.active&&(local.mapGroup!=localBattle.trainer.mapGroup||local.mapNumber!=localBattle.trainer.mapNumber||local.elevation!=localBattle.trainer.elevation))||(!battleEntered&&now>battleBegan+1800)){localBattle={};battleEntered=battleMonDataReady=false;}
         else {
             ++localBattle.tick;

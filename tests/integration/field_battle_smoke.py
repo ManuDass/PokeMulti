@@ -2,9 +2,10 @@
 Uses only the caller's local ROM and local development state; never production saves.
 """
 from pathlib import Path
+from native_fixture import local_field_state
 import argparse, os, re, socket, subprocess, time, uuid
 from PIL import Image
-ap=argparse.ArgumentParser();ap.add_argument('--rom',required=True);ap.add_argument('--configuration',default='Release-0.23.2');ap.add_argument('--indoor',action='store_true');ap.add_argument('--case',choices=['win','free','refund','decline','cancel'],default='win');args=ap.parse_args()
+ap=argparse.ArgumentParser();ap.add_argument('--rom',required=True);ap.add_argument('--configuration',default='Release-0.23.2');ap.add_argument('--indoor',action='store_true');ap.add_argument('--case',choices=['win','free','refund','decline','cancel'],default='win');ap.add_argument('--state',type=Path,help='Local field savestate made with this exact ROM');args=ap.parse_args()
 root=Path(__file__).resolve().parents[2];base=root/'cache'/('field-native-'+uuid.uuid4().hex[:12]);base.mkdir();processes=[]
 s=socket.socket();s.bind(('127.0.0.1',0));port=s.getsockname()[1];s.close()
 def read(role,file='field-battle-check.txt'):
@@ -61,14 +62,20 @@ def check_dialogue(role):
 
 def healthy_idle():return all(val(r,'safe')==1 and val(r,'party_ready')==1 for r in ['a','b'])
 def wallet(role,amount):return val(role,'balance','wallet-check.txt')==amount and val(role,'held','wallet-check.txt')==0 and val(role,'dirty','wallet-check.txt')==0
+state=local_field_state(root,Path(args.rom).resolve(),args.state)
 print('Evidence: '+str(base),flush=True)
 try:
  for role in ['a','b']:
   folder=base/role;folder.mkdir();(folder/'test-keys.txt').write_text('1 0x3ff 6000\n');log=(folder/'runtime.log').open('w')
-  cmd=[str(root/'build'/args.configuration/'fr_game_harness.exe'),'--rom',str(Path(args.rom).resolve()),'--save',str(folder/'test.sav'),'--profile-dir',str(folder),'--name','Aster' if role=='a' else 'Leaf','--window','--test-ui','--test-report','--test-manual','--test-'+('host' if role=='a' else 'join'),str(port),'--load-state',str(root/'cache/runtime-check/cable-a.state'),'--fixture',('field-center-' if args.indoor else 'field-')+role,'--frames','100000']
+  cmd=[str(root/'build'/args.configuration/'fr_game_harness.exe'),'--rom',str(Path(args.rom).resolve()),'--save',str(folder/'test.sav'),'--profile-dir',str(folder),'--name','Aster' if role=='a' else 'Leaf','--window','--test-ui','--test-report','--test-manual','--test-'+('host' if role=='a' else 'join'),str(port),'--load-state',str(state),'--fixture',('field-center-' if args.indoor else 'field-')+role,'--frames','100000']
   processes.append(subprocess.Popen(cmd,cwd=root,stdout=log,stderr=log,env=dict(os.environ,SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy'),creationflags=subprocess.CREATE_NO_WINDOW))
   if role=='a':wait(lambda:(folder/'test-ui-status.txt').exists(),'Host boot',120)
- wait(healthy_idle,'Ready field',120);before={r:val(r,'party_hash') for r in ['a','b']};positions={r:re.search(r'map=\S+ tile=\S+',read(r,'world-check.txt'))[0] for r in ['a','b']}
+ wait(healthy_idle,'Ready field',120)
+ # The first safe callback can precede the periodic position diagnostic.
+ # Wait for both fixture warps before recording the battle-return positions.
+ expected_positions={'a':'map=5,4 tile=7,6' if args.indoor else 'map=3,21 tile=64,11','b':'map=5,4 tile=7,7' if args.indoor else 'map=3,21 tile=64,12'}
+ wait(lambda:all(expected_positions[r]+' ' in read(r,'world-check.txt') for r in ['a','b']),'Fixture positions published')
+ before={r:val(r,'party_hash') for r in ['a','b']};positions={r:re.search(r'map=\S+ tile=\S+',read(r,'world-check.txt'))[0] for r in ['a','b']}
  (base/'before.txt').write_text(read('a')+read('b'))
  key('a');menu('a',1);capture('a','challenge')
  if args.case!='free':

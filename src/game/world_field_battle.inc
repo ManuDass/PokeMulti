@@ -66,8 +66,8 @@ void updateFieldBattle(){
         callGuest(fieldSymbol("CreateBattleStartTask"),0,297);std::printf("FIELD_BATTLE starting at %d,%d\n",fieldBattle.origin.x,fieldBattle.origin.y);return;
     }
     if(fieldBattle.phase==2){
-        fieldBattle.entered|=main==0x08011100+codeOffset();
-        if(main==0x08011100+codeOffset())bus()->write32(0x0300502c,callGuest(fieldSymbol("GetMultiplayerId")));
+        fieldBattle.entered|=main==gameAddress(0x08011100);
+        if(main==gameAddress(0x08011100))bus()->write32(0x0300502c,callGuest(fieldSymbol("GetMultiplayerId")));
         if(!fieldBattle.entered&&time>fieldBattle.began+90000)abortFieldBattle("The battle could not connect. Your team is restored. Any unsettled wager will be refunded.");return;
     }
     if(fieldBattle.phase==3&&local.active&&main==addresses.overworld){
@@ -80,11 +80,14 @@ void updateFieldBattle(){
 }
 
 #ifdef FR_TEST_HARNESS
-int fieldBattleTextTrace(uint32_t,int,ArmCpuState*){
+int fieldBattleTextTrace(uint32_t,int,ArmCpuState* cpu){
     if(guestCall||!fieldBattleActive)return 0;
     std::ofstream f(diagnosticPath.parent_path()/"battle-text.txt",std::ios::app);
     f<<"frame="<<now<<" local="<<callGuest(fieldSymbol("GetMultiplayerId"))<<" text="<<std::hex;
-    for(unsigned j=0;j<300;++j){const auto c=r8(0x0202298c+j);f<<std::setw(2)<<std::setfill('0')<<unsigned(c);if(c==0xff)break;}
+    // This function also prints the VS names and menu labels directly from
+    // other buffers. Trace its actual text argument, not the unused dialogue
+    // buffer (which is still zero-filled during a fresh game's VS intro).
+    for(unsigned j=0;j<300;++j){const auto c=r8(cpu->R[0]+j);f<<std::setw(2)<<std::setfill('0')<<unsigned(c);if(c==0xff)break;}
     for(unsigned i=0;i<5;++i){const auto p=0x0202273c+i*28;f<<" player"<<i<<"="<<r16(p+24)<<":";for(unsigned j=0;j<8;++j)f<<std::setw(2)<<std::setfill('0')<<unsigned(r8(p+8+j));}
     f<<'\n';return 0;
 }

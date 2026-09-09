@@ -261,7 +261,7 @@ int wmain(int argc, wchar_t** argv) {
 #ifdef FR_TEST_HARNESS
         if(testLink&&!testUi)showPanel=false;
 #endif
-        if(showPanel)panel=std::make_unique<fr::online::Panel>(online,identityPath,!onlineMode.empty(),onlineMode=="host"&&worldPath.empty(),trainerName);
+        if(showPanel)panel=std::make_unique<fr::online::Panel>(online,identityPath,!onlineMode.empty(),onlineMode=="host"&&worldPath.empty(),trainerName,report.gameCode);
         activePanel=panel.get();
 #ifdef FR_TEST_HARNESS
         testProfile=profilePath;

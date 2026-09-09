@@ -26,14 +26,13 @@ void updateStoryRetry();
 int runStoryGate(uint32_t address,ArmCpuState* cpu);
 uint32_t wildIdentity=0;
 uint8_t lastWildOwner=255;
-uint32_t codeOffset(){return addresses.overworld-0x080565b4;}
 int guestReturn(ArmCpuState* cpu,uint32_t result){cpu->R[0]=result;cpu->R[15]=cpu->R[14]&~1u;if(cpu->R[14]&1)cpu->cpsr|=CPSR_T_BIT;else cpu->cpsr&=~CPSR_T_BIT;return 1;}
 uint16_t storyRead(uint16_t id){const auto save=r32(0x03005008);if(!validRam(save,0x1200))return 0;return id<0x900?uint16_t((r8(save+0xee0+id/8)>>(id%8))&1):r16(save+0x1000+2*(id-0x4000));}
 void storyWrite(uint16_t id,uint16_t value){const auto save=r32(0x03005008);if(!validRam(save,0x1200))return;if(id<0x900){const auto a=save+0xee0+id/8;const auto mask=1u<<(id%8);bus()->write8(a,uint8_t((r8(a)&~mask)|(value?mask:0)));}else bus()->write16(save+0x1000+2*(id-0x4000),value);}
 // These two drops start hidden before their Rocket encounters. A hide flag
 // alone is not evidence that the campaign has recovered the key item.
 uint16_t campaignReadProof(uint16_t id){
-    if(id==0x036||id==0x037)return uint16_t(callGuest(0x08099f40+codeOffset(),id==0x036?356:359,1)!=0);
+    if(id==0x036||id==0x037)return uint16_t(callGuest(gameAddress(0x08099f40),id==0x036?356:359,1)!=0);
     return storyRead(id);
 }
 bool campaignRewardCollected(const RewardRule& r){return (r.claimed==0x036||r.claimed==0x037)?campaignReadProof(r.claimed)!=0:storyRead(r.claimed)!=0;}
@@ -53,8 +52,8 @@ void saveCampaignProgress();
 // Match FireRed's save dialog before serializing any field checkpoint.
 // Otherwise a cold Continue can restore stale tiles from an earlier map.
 void prepareNativeFieldSave(){
-    callGuest(0x080590d8+codeOffset()); // SaveMapView
-    callGuest(0x08112450+codeOffset()); // SaveQuestLogData
+    callGuest(gameAddress(0x080590d8)); // SaveMapView
+    callGuest(gameAddress(0x08112450)); // SaveQuestLogData
 }
 bool safeStory(){return local.active&&!replaying()&&r8(0x03000ea8)==2&&!r8(0x03000f9c)&&(r8(0x02037abf)&0x80)==0;}
 const online::MapState* sharedMap(uint8_t group,uint8_t map){for(const auto& m:roomState.world.maps)if(m.group==group&&m.map==map)return &m;return nullptr;}
@@ -66,7 +65,7 @@ uint32_t objectTemplate(unsigned id){
     for(unsigned i=0;i<count;++i)if(r8(templates+i*24)==id)return templates+i*24;return 0;
 }
 uint16_t objectFlag(unsigned id){const auto t=objectTemplate(id);return t?r16(t+20):0;}
-bool personalService(unsigned id){const auto t=objectTemplate(id);if(!t)return false;const auto script=r32(t+16);const auto offset=codeOffset()?0x78u:0u;return script==0x081a8cf6+offset||script==0x081a8cfc+offset||script==0x081a8d02+offset;}
+bool personalService(unsigned id){const auto t=objectTemplate(id);if(!t)return false;const auto script=r32(t+16);return script==gameAddress(0x081a8cf6)||script==gameAddress(0x081a8cfc)||script==gameAddress(0x081a8d02);}
 bool sharedObject(uint32_t obj){return (r32(obj)&1)&&!(r32(obj)&0x10000)&&r8(obj+8)>0&&r8(obj+8)<255&&r8(obj+5)<152&&r8(obj+9)==r8(r32(0x03005008)+5)&&r8(obj+10)==r8(r32(0x03005008)+4)&&!roomPersonalObject(objectFlag(r8(obj+8)))&&!personalService(r8(obj+8));}
 void refreshStoryObjects(){
     const auto events=r32(0x02036e00);if(!validRom(events,20))return;const auto count=r8(events);const auto templates=r32(events+4);if(count>64||!validRom(templates,count*24))return;
@@ -74,8 +73,8 @@ void refreshStoryObjects(){
         for(unsigned j=0;j<16;++j){const auto o=0x02036e38+36*j;if((r32(o)&1)&&r8(o+8)==id){loaded=true;break;}}
         const auto* shared=sharedNpc(id);const bool acting=shared&&shared->visible&&std::any_of(roomState.world.leases.begin(),roomState.world.leases.end(),[&](const auto& l){return l.owner==shared->owner&&l.key.group==local.mapGroup&&l.key.map==local.mapNumber;});
         if(acting||retryNpcPinned(id))continue;
-        if(storyRead(flag)&&loaded)callGuest(0x0805e4c8+codeOffset(),id,local.mapNumber,local.mapGroup);
-        else if(!storyRead(flag)&&!loaded&&std::abs(s16(t+4)-local.x)<12&&std::abs(s16(t+6)-local.y)<10)callGuest(0x0805e898+codeOffset(),id,local.mapNumber,local.mapGroup);
+        if(storyRead(flag)&&loaded)callGuest(gameAddress(0x0805e4c8),id,local.mapNumber,local.mapGroup);
+        else if(!storyRead(flag)&&!loaded&&std::abs(s16(t+4)-local.x)<12&&std::abs(s16(t+6)-local.y)<10)callGuest(gameAddress(0x0805e898),id,local.mapNumber,local.mapGroup);
     }
 }
 void synchronizeStory(){
@@ -134,7 +133,7 @@ void synchronizeStory(){
     if(pendingStory.empty()&&(rewardRequested||now>=rewardRetryAt)){
         const bool requested=rewardRequested;rewardRequested=false;rewardRetryAt=now+180;unsigned delivered=0,waiting=0;
         for(const auto& r:storyRewardRules)if(shareReward(r,roomState.rewardPolicy)&&campaignValue(r.progress)>=r.minimum&&!campaignRewardCollected(r)){
-            if(callGuest(0x0809a084+codeOffset(),r.item,1)){storyWrite(r.claimed,1);observedStory[r.claimed]=1;++delivered;}else ++waiting;
+            if(callGuest(gameAddress(0x0809a084),r.item,1)){storyWrite(r.claimed,1);observedStory[r.claimed]=1;++delivered;}else ++waiting;
         }
         if(delivered){campaignSaveRequested=true;rewardNotice="Campaign rewards were added to your Bag.";queueFieldNotice("campaign-rewards",rewardNotice);}
         if(waiting&&waiting!=lastWaitingRewards)queueFieldNotice("campaign-bag","Some campaign rewards are waiting. Make room in your Bag to receive them.");
@@ -142,7 +141,7 @@ void synchronizeStory(){
         lastWaitingRewards=waiting;
         if(delivered||waiting||requested)std::printf("ROOM_REWARDS delivered=%u waiting=%u\n",delivered,waiting);
     }
-    if(changed){campaignSaveRequested=true;refreshStoryObjects();callGuest(0x08069c38+codeOffset());callGuest(0x0805a684+codeOffset());}
+    if(changed){campaignSaveRequested=true;refreshStoryObjects();callGuest(gameAddress(0x08069c38));callGuest(gameAddress(0x0805a684));}
 }
 
 void captureNpcs(){
@@ -182,8 +181,8 @@ void syncWorldFrame(){
                 bus()->write8(0x02024029,uint8_t(value));
             }
             if(action=="party-eggs"&&value<64){
-                const auto scratch=callGuest(0x08002bb0+codeOffset(),4);
-                if(validRam(scratch,4)){for(unsigned i=0;i<std::min<unsigned>(r8(0x02024029),6);++i){bus()->write32(scratch,(value>>i)&1);callGuest(0x0804037c+codeOffset(),0x02024284+i*100,45,scratch);}callGuest(0x08002bc4+codeOffset(),scratch);}
+                const auto scratch=callGuest(gameAddress(0x08002bb0),4);
+                if(validRam(scratch,4)){for(unsigned i=0;i<std::min<unsigned>(r8(0x02024029),6);++i){bus()->write32(scratch,(value>>i)&1);callGuest(gameAddress(0x0804037c),0x02024284+i*100,45,scratch);}callGuest(gameAddress(0x08002bc4),scratch);}
             }
             if(action=="chat")room->sendChat("Ready for an adventure!");
             if(action=="journal")showCampaignJournal();
@@ -212,8 +211,8 @@ void syncWorldFrame(){
             if(((n.owner==roomSlot||n.owner==255)&&!retryNpcPinned(n.localId))||roomPersonalObject(objectFlag(n.localId)))continue;
             bool loaded=false;for(unsigned j=0;j<16;++j){const auto o=0x02036e38+36*j;if((r32(o)&1)&&r8(o+8)==n.localId){loaded=true;break;}}
             const auto flag=objectFlag(n.localId);const auto saved=flag?storyRead(flag):uint16_t(0);
-            if(!n.visible&&loaded)callGuest(0x0805e4c8+codeOffset(),n.localId,local.mapNumber,local.mapGroup);
-            else if(n.visible&&!loaded&&std::abs(n.pose.x-local.x)<12&&std::abs(n.pose.y-local.y)<10)callGuest(0x0805e898+codeOffset(),n.localId,local.mapNumber,local.mapGroup);
+            if(!n.visible&&loaded)callGuest(gameAddress(0x0805e4c8),n.localId,local.mapNumber,local.mapGroup);
+            else if(n.visible&&!loaded&&std::abs(n.pose.x-local.x)<12&&std::abs(n.pose.y-local.y)<10)callGuest(gameAddress(0x0805e898),n.localId,local.mapNumber,local.mapGroup);
             if(flag)storyWrite(flag,saved); // presentation does not claim or rewrite story state
         }
         for(const auto& n:m->npcs){auto pose=n.pose;pose.spriteFrame=n.anim;pose.follower=n.command;pose.followerX=n.oldX;pose.followerY=n.oldY;pose.identity=(uint64_t(n.generation)<<8)|n.localId;const unsigned key=(unsigned(m->group)<<16)|(unsigned(m->map)<<8)|n.localId;npcMotion[key].push(pose,clockMs());}
@@ -238,7 +237,7 @@ void publishWorld(){
     if(now%60==0&&!diagnosticPath.empty()){std::ofstream f(diagnosticPath.parent_path()/"shared-world.txt");f<<"frame="<<now<<" connected="<<roomState.connected<<" ready="<<roomState.world.storyReady<<" applied="<<storyApplied<<" starter="<<ownStarter()<<" status="<<unsigned(r8(0x03000ea8))<<" locked="<<unsigned(r8(0x03000f9c))<<" replay="<<replaying()<<" lease="<<encounterToken<<" pending="<<pendingStory.size()<<" rewards="<<unclaimedStoryRewards().size()<<'\n';
         for(const auto& l:roomState.world.leases)f<<"lease_owner="<<unsigned(l.owner)<<" kind="<<unsigned(l.key.kind)<<" id="<<l.key.id<<'\n';
         if(const auto* m=sharedMap()){f<<"wild_owner="<<unsigned(m->wildOwner)<<" revision="<<m->revision<<'\n';for(const auto& n:m->npcs)f<<"npc="<<unsigned(n.localId)<<" owner="<<unsigned(n.owner)<<" tile="<<n.pose.x<<','<<n.pose.y<<" pixel="<<n.pose.pixelX<<','<<n.pose.pixelY<<" face="<<unsigned(n.pose.facing)<<" anim="<<unsigned(n.anim)<<" command="<<unsigned(n.command)<<'\n';for(const auto& w:m->wild)f<<"wild="<<w.id<<" species="<<w.species<<" tile="<<w.x<<','<<w.y<<" face="<<unsigned(w.facing)<<" anim="<<unsigned(w.frame)<<'\n';}
-        if(safeStory())f<<"tm39_count_at_least_one="<<callGuest(0x08099f40+codeOffset(),327,1)<<" tm39_count_at_least_two="<<callGuest(0x08099f40+codeOffset(),327,2)<<'\n';
+        if(safeStory())f<<"tm39_count_at_least_one="<<callGuest(gameAddress(0x08099f40),327,1)<<" tm39_count_at_least_two="<<callGuest(gameAddress(0x08099f40),327,2)<<'\n';
         if(safeStory()){
             const auto layout=r32(0x02036dfc);uint32_t hash=2166136261u;
             if(validRom(layout,24)&&r32(layout)<=512&&(r32(layout)+15)*(r32(layout+4)+14)*2<=0x5000){
@@ -247,7 +246,7 @@ void publishWorld(){
                 f<<"field_tiles="<<hash<<'\n';
             }
         }
-        if(safeStory())f<<"masterball_count_at_least_one="<<callGuest(0x08099f40+codeOffset(),1,1)<<" masterball_count_at_least_two="<<callGuest(0x08099f40+codeOffset(),1,2)<<'\n';
+        if(safeStory())f<<"masterball_count_at_least_one="<<callGuest(gameAddress(0x08099f40),1,1)<<" masterball_count_at_least_two="<<callGuest(gameAddress(0x08099f40),1,2)<<'\n';
         f<<"campaign="<<roomState.campaign.id<<" objectives="<<roomState.campaign.completed.size()<<" saved="<<!campaignSaving<<'\n';
         for(auto id:{uint16_t(0x4057),uint16_t(0x4055),uint16_t(0x829),uint16_t(0x237),uint16_t(0x238),uint16_t(0x23a),uint16_t(0x53a),uint16_t(0x555),uint16_t(0x574),uint16_t(0x820),uint16_t(0x254),uint16_t(0x4051),uint16_t(0x250),uint16_t(0x4010)})f<<"progress="<<id<<" local="<<storyRead(id)<<" world="<<campaignValue(id)<<'\n';
         for(auto id:{uint16_t(0x820),uint16_t(0x254),uint16_t(0x4052),uint16_t(0x52a),uint16_t(0x263),uint16_t(0x57)})f<<"story="<<id<<" value="<<storyRead(id)<<'\n';}
@@ -285,7 +284,7 @@ int interactedHook(uint32_t address,int,ArmCpuState* cpu){
     if(const auto challenge=interactWithTrainer())return guestReturn(cpu,challenge);
     const auto script=callGuest(address,cpu->R[0],cpu->R[1],cpu->R[2]);const auto selected=r8(0x03005074);
     if(!script)if(const auto retry=retryInteraction(selected,cpu->R[0]))return guestReturn(cpu,retry);
-    if(const auto* unique=uniqueScript(script,codeOffset()!=0);unique&&!(roomState.rewardPolicy&ShareSpecialPokemon)){
+    if(const auto* unique=uniqueScript(script,gameRevision);unique&&!(roomState.rewardPolicy&ShareSpecialPokemon)){
         if(storyRead(unique->claimed)||!claim(online::EncounterKind::Unique,unique->claimed,unique->claimed)){
             rewardNotice=std::string(unique->name)+" is already claimed or being encountered by another trainer.";
             queueFieldNotice("campaign-claimed",rewardNotice);return guestReturn(cpu,0);
@@ -309,17 +308,17 @@ int coordHook(uint32_t address,int,ArmCpuState* cpu){
 int onFrameHook(uint32_t,int,ArmCpuState* cpu){
     if(guestCall||!roomState.connected||replaying()||!ownStarter())return 0;
     if(!local.active||!storyApplied||local.mapGroup!=r8(r32(0x03005008)+4)||local.mapNumber!=r8(r32(0x03005008)+5))return guestReturn(cpu,0);
-    const auto script=callGuest(0x08069bd8+codeOffset(),2);if(!script)return guestReturn(cpu,0);
-    const auto table=callGuest(0x08069b80+codeOffset(),2);if(!validRom(table,2))return 0;
+    const auto script=callGuest(gameAddress(0x08069bd8),2);if(!script)return guestReturn(cpu,0);
+    const auto table=callGuest(gameAddress(0x08069b80),2);if(!validRom(table,2))return 0;
     for(unsigned i=0;i<64;++i){const auto row=table+i*8;if(!validRom(row,8)||!r16(row))break;if(r32(row+4)==script){const auto trigger=r16(row);if(roomShares(trigger)&&!claim(online::EncounterKind::Story,0,trigger))return guestReturn(cpu,0);break;}}
     return 0;
 }
 int trainerHook(uint32_t,int,ArmCpuState* cpu){
     if(guestCall||!roomState.connected||!local.active||replaying()||!ownStarter())return 0;
     const unsigned index=cpu->R[0]&255;if(index>=16)return 0;const auto obj=0x02036e38+36*index;
-    if(!sharedObject(obj))return 0;const auto script=callGuest(0x0805fc38+codeOffset(),index);if(!validRom(script,8)||callGuest(0x08080378+codeOffset(),script))return 0;
+    if(!sharedObject(obj))return 0;const auto script=callGuest(gameAddress(0x0805fc38),index);if(!validRom(script,8)||callGuest(gameAddress(0x08080378),script))return 0;
     if(!personalChallengeMap(local.mapGroup,local.mapNumber)&&campaignValue(uint16_t(0x500+r16(script+2))))return guestReturn(cpu,0);
-    if(callGuest(0x08081bec+codeOffset(),obj)&&!claim(online::EncounterKind::Npc,r8(obj+8),uint16_t(0x500+r16(script+2))))return guestReturn(cpu,0);return 0;
+    if(callGuest(gameAddress(0x08081bec),obj)&&!claim(online::EncounterKind::Npc,r8(obj+8),uint16_t(0x500+r16(script+2))))return guestReturn(cpu,0);return 0;
 }
 int npcMovementHook(uint32_t address,int,ArmCpuState* cpu){
     if(guestCall||!roomState.connected||!local.active||replaying()||!ownStarter())return 0;
@@ -338,7 +337,7 @@ int npcMovementHook(uint32_t address,int,ArmCpuState* cpu){
     bus()->write16(sp+32,uint16_t(pose.pixelX+originX+8));bus()->write16(sp+34,uint16_t(pose.pixelY+originY+16+int8_t(r8(sp+41))));bus()->write16(sp+36,uint16_t(int16_t(pose.offsetX)));bus()->write16(sp+38,uint16_t(int16_t(pose.offsetY)));
     if(takeover){for(unsigned a=48;a<62;a+=2)bus()->write16(sp+a,0);bus()->write8(obj+28,255);}
     callGuest(address,obj,sp,cpu->R[2]);
-    const auto anims=r32(sp+8);if(validRom(anims,(pose.spriteFrame+1)*4)){const auto commands=r32(anims+pose.spriteFrame*4);if(validRom(commands,(pose.follower+1)*4)){bus()->write8(sp+42,pose.spriteFrame);callGuest(0x080083c0+codeOffset(),sp,pose.follower);}}
+    const auto anims=r32(sp+8);if(validRom(anims,(pose.spriteFrame+1)*4)){const auto commands=r32(anims+pose.spriteFrame*4);if(validRom(commands,(pose.follower+1)*4)){bus()->write8(sp+42,pose.spriteFrame);callGuest(gameAddress(0x080083c0),sp,pose.follower);}}
     bus()->write16(sp+2,uint16_t((r16(sp+2)&~0x3000u)|(pose.flip<<12)));
     bus()->write32(obj,(r32(obj)&~0x100u)|(original&0x100));
     return guestReturn(cpu,0);
