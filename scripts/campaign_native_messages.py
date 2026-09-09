@@ -1,0 +1,13 @@
+from campaign_native_control import *
+command('b','campaign-fixture',8)
+wait(lambda:'map=3,1 ' in read('b','world-check.txt') and safe('b'),'Outdoor message fixture did not arrive',80,('a','b'))
+settle()
+ui('b','click 200 300');ui('b','camp');wait(lambda:'status=0 locked=1' in read('b'),'Camp button did not use native dialogue')
+ui('b','click 200 300');n=frame('b');wait(lambda:frame('b')>n+240,'Native message did not print');capture('camp-message-2d-final')
+key('b','0x3fd',24);wait(lambda:safe('b'),'Native B did not dismiss camp message')
+ui('b','click 200 300');ui('b','camp');wait(lambda:not safe('b'),'Repeated camp rejection did not show again')
+n=frame('b');wait(lambda:frame('b')>n+240,'Repeated message did not finish printing')
+key('b');wait(lambda:safe('b'),'Native A did not dismiss camp message')
+ui('b','click 951 266');wait(lambda:not safe('b'),'Room journal did not open native text')
+ui('b','click 200 300');n=frame('b');wait(lambda:frame('b')>n+240,'Journal text did not print');capture('campaign-journal-native')
+settle(seconds=120)

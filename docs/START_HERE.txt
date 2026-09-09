@@ -1,0 +1,56 @@
+POKEMULTI 0.26.0 - WINDOWS 10/11, 64-BIT
+
+1. Run PokeMulti-Setup.exe from the GitHub release and choose an install folder.
+   Portable alternative: extract the entire versioned ZIP into a folder.
+2. Open the installed shortcut, or double-click pokemulti.exe.
+3. Select your own unmodified English FireRed US 1.0 or US 1.1 ROM.
+   A .gba file or a ZIP containing exactly one .gba is supported.
+   No ROM is included. No compiler, Visual Studio or extra asset download is needed.
+4. Choose your online username. FireRed asks for its narrative name separately.
+
+TO JOIN YOUR FRIEND
+Choose Join a friend, then Paste invite (or enter the host's IPv4, port and
+room key). Everyone must use this application version and matching ROM data.
+Your trainer's progress for that world is kept by its host. If the host leaves,
+you return to the launcher; reconnect to resume your last completed checkpoint.
+
+TO HOST OR PLAY ALONE
+Select a world, or choose New world. Play world starts solo play. Host world
+lets you choose the room key, reward rules and a player limit from 2 to 32.
+Internet hosts forward the selected TCP port (default 38475) to their PC and
+allow the app through Windows Firewall. Room > Invite friends supplies the
+connection details. Same-PC testing uses 127.0.0.1; LAN players use the host's
+LAN address. A public IP alone does not bypass a router or carrier-grade NAT.
+
+QUICK CONTROLS
+WASD / arrows  Move             X       Confirm / interact / nearby battle
+Z             Cancel / run     Enter   Game menu / Save
+G             Set up / pack camp
+T             Invite the facing adjacent trainer to trade
+Right Shift   Select           C / V   L / R
+F2            Sidebar          F11     Fullscreen
+F12           Screenshot       Esc     Return focus to the game
+Click the chat input to type. Enter sends while chat is focused.
+Accepted trades use the existing upstairs Cable Club flow.
+
+SAVES
+Automatic checkpoints wait for a safe field boundary. The host's game Save
+menu also requests saves from everyone. Crash recovery uses the last completed
+checkpoint; unsaved in-battle actions may not survive. Save & exit world closes
+a session safely. Each world keeps personal teams, items and money separately.
+Data is stored in %LOCALAPPDATA%\FireRedRecomp, outside this program folder.
+Back up that folder, including identity.cfg and identity.key, to keep your
+worlds and trainer identity. Do not send it as part of the program package.
+
+SECOND PLAYER ON ONE PC
+launch_player2.bat uses a separate local trainer profile. Choose Join a friend
+and use the first player's same-PC invite.
+
+More detail: docs\WORLDS.md and docs\MULTIPLAYER.md.
+Original supplied artwork, fonts, credits and dependency notices are included.
+
+NAME CHANGES AND UPDATES
+Edit username in the launcher changes your online label, not your in-game
+trainer name or saved progress. Update program > Check for updates downloads
+future stable releases from GitHub. Close other sessions before updating.
+Users of 0.25.0 or earlier need this version once to obtain the updater.

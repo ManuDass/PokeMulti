@@ -1,0 +1,5 @@
+#pragma once
+namespace fr {
+inline constexpr char BuildVersion[] = "@PROJECT_VERSION@";
+inline constexpr wchar_t BuildVersionWide[] = L"@PROJECT_VERSION@";
+}

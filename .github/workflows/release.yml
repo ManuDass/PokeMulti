@@ -1,0 +1,58 @@
+name: Windows release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read release version
+        run: |
+          $version=[regex]::Match([IO.File]::ReadAllText('CMakeLists.txt'),'project\(PokeMulti VERSION ([0-9.]+)').Groups[1].Value
+          if (!$version) { throw 'Missing project version.' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") { throw 'Tag does not match source version.' }
+          "POKEMULTI_VERSION=$version" >> $env:GITHUB_ENV
+      - name: Build and test
+        shell: cmd
+        run: build_release.bat
+      - name: Package audited program files
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1
+      - name: Install verified Inno Setup compiler
+        run: |
+          $setup=Join-Path $env:RUNNER_TEMP 'innosetup.exe'
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe' -OutFile $setup
+          if ((Get-FileHash -LiteralPath $setup).Hash -ne '0362A383ED217D4C4239B5933866DD96D3EB2102737DA92F80F6057A4B40DF2F') { throw 'Compiler download hash mismatch.' }
+          $signature=Get-AuthenticodeSignature -LiteralPath $setup
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Pyrsys') { throw 'Compiler signature verification failed.' }
+          $folder=Join-Path $env:RUNNER_TEMP 'InnoSetup'
+          $process=Start-Process -FilePath $setup -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CURRENTUSER /DIR=`"$folder`"" -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Compiler installation failed.' }
+          "POKEMULTI_ISCC=$folder\ISCC.exe" >> $env:GITHUB_ENV
+      - name: Build installer
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_installer.ps1
+      - name: Publish stable release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version=$env:POKEMULTI_VERSION
+          $assets=@('dist/PokeMulti-Setup.exe',"dist/PokeMulti-$version.zip")
+          $checksums=foreach ($asset in $assets) { "{0}  {1}" -f (Get-FileHash -LiteralPath $asset).Hash.ToLowerInvariant(),(Split-Path -Leaf $asset) }
+          [IO.File]::WriteAllLines('dist/SHA256SUMS.txt',$checksums,[Text.UTF8Encoding]::new($false))
+          $assets+='dist/SHA256SUMS.txt'
+          gh release view "v$version" --repo $env:GITHUB_REPOSITORY 2>$null
+          if ($LASTEXITCODE -eq 0) { throw 'Release already exists; published assets must not be overwritten.' }
+          gh release create "v$version" @assets --repo $env:GITHUB_REPOSITORY --verify-tag --title "PokéMulti $version" --notes-file docs/RELEASE_NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed.' }

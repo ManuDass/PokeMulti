@@ -1,0 +1,52 @@
+*.gba
+*.gb
+*.gbc
+*.bin
+*.rom
+*.sav
+*.sa1
+*.ss0
+*.zip
+*.7z
+*.rar
+/Following Pokemon EX/
+/roms/
+/cache/
+/extracted/
+/userdata/
+/build/
+/dist/
+/.vs/
+*.user
+*.suo
+*.log
+__pycache__/
+/generated/arm/*
+/generated/thumb/*
+/generated/symbols/*
+/generated/game/*
+!/generated/**/.gitkeep
+/Pokemon Essentials*/
+
+/recomp_coverage_*.json
+/recomp_master_misses_*.toml.frag
+/recomp_cache/
+*.state
+*.state[0-9]
+*.sav.bak
+*.sav.lock
+
+/backups/
+/exports/
+/worlds/
+/guest-cache/
+*.pmsv
+*.key
+*.lock
+*.updating
+profile.cfg
+identity.cfg
+friends.cfg
+/Poké Ball Plus/*
+!/Poké Ball Plus/ob0008_00_gadgets.dae
+!/Poké Ball Plus/ob0008_00_obj_col.png

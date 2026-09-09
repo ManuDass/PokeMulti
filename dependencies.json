@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "note": "Generic dependencies only. No ROM, BIOS, extracted art or generated game translation.",
+  "sources": [
+    {
+      "name": "gbarecomp",
+      "url": "https://github.com/mstan/gbarecomp",
+      "commit": "a1b7b337221cf407d531c12b4d641fcd81c7a976",
+      "license": "PolyForm-Noncommercial-1.0.0",
+      "local_modifications": true
+    },
+    {
+      "name": "arm-recomp-core",
+      "url": "https://github.com/mstan/arm-recomp-core",
+      "commit": "763b922f4912708d2704e7833f18addfbf8ddf33",
+      "license": "MIT",
+      "local_modifications": false
+    },
+    {
+      "name": "SDL2",
+      "url": "https://github.com/libsdl-org/SDL",
+      "commit": "5d249570393f7a37e037abf22cd6012a4cc56a71",
+      "license": "Zlib",
+      "local_modifications": false
+    },
+    {
+      "name": "zlib",
+      "url": "https://github.com/madler/zlib",
+      "commit": "51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf",
+      "license": "Zlib",
+      "local_modifications": false
+    },
+    {
+      "name": "tomlplusplus",
+      "url": "https://github.com/marzer/tomlplusplus",
+      "commit": "30172438cee64926dc41fdd9c11fb3ba5b2ba9de",
+      "license": "MIT",
+      "local_modifications": false
+    },
+    {
+      "name": "Dear ImGui",
+      "url": "https://github.com/ocornut/imgui",
+      "commit": "f5befd2d29e66809cd1110a152e375a7f1981f06",
+      "version": "1.91.9b",
+      "license": "MIT",
+      "local_modifications": false
+    }
+  ],
+  "compiler": {
+    "name": "TinyCC",
+    "version": "0.9.27",
+    "license": "LGPL-2.1",
+    "binary": {
+      "url": "https://download-mirror.savannah.gnu.org/releases/tinycc/tcc-0.9.27-win64-bin.zip",
+      "sha256": "34a721949a2583fdff725312da092fa0f5f1f284b702e6f811c6954714faabb2"
+    },
+    "source": {
+      "url": "https://download-mirror.savannah.gnu.org/releases/tinycc/tcc-0.9.27.tar.bz2",
+      "sha256": "de23af78fca90ce32dff2dd45b3432b2334740bb9bb7b05bf60fdbfc396ceb9c"
+    }
+  }
+}

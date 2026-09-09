@@ -1,0 +1,13 @@
+* text=auto
+*.sh text eol=lf
+*.yml text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.png binary
+*.ttf binary
+*.ico binary
+*.exe binary
+*.dll binary
+*.lib binary
+*.a binary
+*.dae binary
