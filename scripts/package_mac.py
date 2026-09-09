@@ -8,6 +8,9 @@ assert arch in ('arm64','x86_64')
 version=re.search(r'project\(PokeMulti VERSION ([0-9.]+)',(root/'CMakeLists.txt').read_text()).group(1)
 output=root/'dist';stage=output/('mac-'+arch);app=stage/'PokeMulti.app'
 subprocess.run(['cmake','--install',str(root/'build/mac'),'--prefix',str(stage)],check=True)
+iconset=root/'build/mac/PokeMulti.iconset'
+subprocess.run(['xcrun','swift',str(root/'scripts/make_mac_icon.swift'),str(root/'assets/ui/Program_Icon.png'),str(iconset)],check=True)
+subprocess.run(['iconutil','-c','icns',str(iconset),'-o',str(app/'Contents/Resources/PokeMulti.icns')],check=True)
 manifest=[]
 for path in sorted(app.rglob('*')):
     if not path.is_file():continue

@@ -41,7 +41,7 @@ install(FILES third_party/gbarecomp/third_party/tomlpp/LICENSE DESTINATION "${MA
 install(FILES third_party/gbarecomp/src/runtime/bios_hle.cpp third_party/gbarecomp/src/runtime/bios_hle.h DESTINATION "${MAC_APP}/Resources/license-source/bios_hle")
 include(CTest)
 if(BUILD_TESTING)
-  foreach(test zip online connection chat motion world_sync wager camp battle_presence release campaign encounter_retry world_store)
+  foreach(test rom_compatibility zip online connection chat motion world_sync wager camp battle_presence release campaign encounter_retry world_store)
     add_executable(fr_${test}_tests tests/${test}_tests.cpp)
     target_link_libraries(fr_${test}_tests PRIVATE fr_online)
     add_test(NAME ${test} COMMAND fr_${test}_tests)

@@ -5,6 +5,7 @@
   <key>CFBundleName</key><string>PokéMulti</string>
   <key>CFBundleDisplayName</key><string>PokéMulti</string>
   <key>CFBundleExecutable</key><string>pokemulti</string>
+  <key>CFBundleIconFile</key><string>PokeMulti.icns</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>@PROJECT_VERSION@</string>
   <key>CFBundleVersion</key><string>@PROJECT_VERSION@</string>
