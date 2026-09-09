@@ -44,8 +44,14 @@ cross-PC/WAN cable timing, unusual field effects and full playthroughs need more
 testing. Native compilation retains instruction fallback. Crashes can lose work
 since the last completed safe checkpoint.
 
-Mac builds are undergoing separate native compilation and test checks. They are
-not covered by the Windows results. No ROM or personal save is sent to CI.
+The separate macOS preview branch passed native Intel and Apple Silicon builds,
+CTest, ROM-free launcher and packaged-app smoke checks, and ad-hoc signature
+verification in GitHub Actions run `34416681074`. Both LeafGreen cartridge
+previews were visually reviewed, and the packaged artwork matches the supplied
+PNG byte-for-byte. These checks do not validate ROM gameplay on physical Macs
+or establish full Windows feature parity. Mac updates remain manual and
+Poké Ball Plus Bluetooth support is not included in the preview. No ROM or
+personal save is sent to CI.
 
 Build instructions are in the repository README. Developer acceptance checks
 are grouped under `tests/integration`; historical planning and session logs are
