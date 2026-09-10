@@ -206,6 +206,9 @@ bool readPlayer(PlayerState& out){
     out.active=true;out.mapGroup=r8(save+4);out.mapNumber=r8(save+5);
     out.x=int16_t(s16(object+16)-7);out.y=int16_t(s16(object+18)-7);
     out.elevation=r8(object+11)&15;out.facing=r8(object+24)&15;out.graphics=r8(object+5);
+    // Elevation zero on a ledge inherits the last plane; sending it as a new
+    // floor makes other clients hide the trainer and reset their motion history.
+    if(!out.elevation&&completedPlayer.active&&sameMap(out,completedPlayer))out.elevation=completedPlayer.elevation;
     avatarFlags=r8(0x02037078);out.follower=leadSpecies(out.followerShiny,out.followerToken);
     const auto partyCount=r8(0x02024029);out.partyCount=partyCount<=6?partyCount:0;out.partyEggs=partyEggMask(out.partyCount);
     const uint32_t layout=r32(0x02036dfc);
