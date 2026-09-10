@@ -116,3 +116,10 @@ without returning to the top row. Tests reject blank or opposite-row cells and
 verify that finished effects select no cell. The supplied PNG remains unchanged.
 The runtime refreshes the native framebuffer before composition, and the world
 renderer clears its host-object layer before drawing one current cell per follower.
+
+## Emote1 sequences (0.26.7 / FRMP 22)
+
+Question uses top-row cells 1-4. Exclamation uses top-row cell 5 followed by
+bottom-row cells 1-5. Each plays once before holding its final expression, then
+clears. Nearby X interactions cycle through heart, happy, music, curious and
+surprised reactions. Network validation accepts and transports all five kinds.

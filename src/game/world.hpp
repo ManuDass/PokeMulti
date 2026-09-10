@@ -24,7 +24,7 @@ struct PlayerState {
     bool followerShiny=false; // Saved lead Pokemon identity; independent of room odds.
     uint32_t followerToken=0; // Individual identity, including same-species party switches.
     uint16_t followerEmoteSequence=0;
-    uint8_t followerEmote=0; // 0 none, 1 heart, 2 happy, 3 music.
+    uint8_t followerEmote=0; // 0 none, 1 heart, 2 happy, 3 music, 4 curious, 5 surprised.
     uint8_t partyEggs=0; // Bit i is set for an Egg in occupied slot i.
 };
 void initialize(FireRedRevision revision,const std::filesystem::path& diagnostics,const std::filesystem::path& saveFile={});

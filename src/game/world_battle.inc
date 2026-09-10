@@ -68,7 +68,7 @@ void updateBattlePresence(){
                 if(count==2||count==4){bool ready=true;for(unsigned i=0;i<count;++i){const auto mon=0x02023be4+88*i;const unsigned pos=r8(0x02023bd6+i);if(pos>3){ready=false;break;}if(!(r32(0x02022b4c)&0x80)||pos&1)ready&=r16(mon)>0&&r16(mon)<=411&&r16(mon+44)>0;}
                     battleMonDataReady|=ready;
                     if(battleMonDataReady)for(unsigned i=0;i<count;++i){const auto mon=0x02023be4+88*i;const unsigned pos=r8(0x02023bd6+i),species=r16(mon);if(pos>3||!species||species>411)continue;
-                        for(auto& m:localBattle.mons)if(m.position==pos){m.species=uint16_t(species);m.visible=r16(mon+40)>0;const auto partyIndex=r16(0x02023bce+2*i);if(partyIndex<6){const auto original=(pos&1?0x0202402cu:0x02024284u)+100*partyIndex;m.shiny=isShiny(r32(original),r32(original+4));}}
+                        for(auto& m:localBattle.mons)if(m.position==pos){m.species=uint16_t(species);m.visible=r16(mon+40)>0;const auto partyIndex=r16(0x02023bce + 2*i);if(partyIndex<6){const auto original=(pos&1?0x0202402cu:0x02024284u)+100*partyIndex;m.shiny=isShiny(r32(original),r32(original+4));}}
                     }
                 }
             }

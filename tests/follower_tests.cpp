@@ -28,6 +28,15 @@ int main(){try{
         check(recall>=5&&recall<=7,"Return must use only the three populated bottom-row cells");
     }
     check(followerBallPattern(false,10)==-1&&followerBallPattern(true,10)==-1,"Finished effects must leave no animation cell");
+    check(followerEmoteSheet(4)==2&&followerEmoteSheet(5)==2,"Question and exclamation must use Emote1");
+    for(unsigned frame=0;frame<24;++frame){
+        const auto question=followerEmotePattern(4,frame),surprise=followerEmotePattern(5,frame);
+        check(question>=0&&question<=3,"Question must stay in top cells 1 through 4");
+        check(surprise>=4&&surprise<=9,"Exclamation must start at top cell 5 and stay in its own sequence");
+        if(frame<8)check(question==int(frame/2),"Question frames play in order");
+        if(frame<12)check(surprise==4+int(frame/2),"Exclamation must continue across the row boundary");
+    }
+    check(followerEmotePattern(4,24)==-1&&followerEmotePattern(5,24)==-1,"Emote1 must clear when finished");
     check(followerRow(1)==0&&followerRow(2)==3&&followerRow(3)==1&&followerRow(4)==2,"Sheet direction rows are wrong");
     MotionTimeline timeline;PlayerState a;a.active=true;a.identity=1;a.followerVisible=true;a.followerX=30;a.followerY=50;a.followerFacing=4;a.sequence=1;a.sampleTime=100;
     auto b=a;b.sequence=2;b.sampleTime=120;b.followerY=48;b.followerFacing=2;timeline.push(a,1000);timeline.push(b,1020);
