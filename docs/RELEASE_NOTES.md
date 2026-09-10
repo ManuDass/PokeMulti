@@ -1,6 +1,8 @@
 Download **PokeMulti-Setup.exe** and run the installation wizard. Existing Windows
 installations can use **Update program → Check for updates → Download & restart**.
 
+- Send-out uses the four populated top-row animation cells; return uses only
+  the three populated bottom-row cells. Each frame replaces the previous cell.
 - Shiny Pokemon now use their supplied shiny sprites in grass, as followers,
   around camp and when released. Visible encounters retain their shiny identity.
 - Followers appear without taking a first step and remain consistent across

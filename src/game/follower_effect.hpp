@@ -2,9 +2,11 @@
 #include "game/world.hpp"
 #include <array>
 namespace fr::game {
-// Original RPG animation cells: 192 px, five columns; 20 animation frames/s.
+// Supplied 192 px cells, five columns: top 0..3 send out; bottom 5..7 recall.
+// Each tick selects one cell only; blank cells never extend either sequence.
+// Playback is 20 animation frames/s.
 inline int followerBallPattern(bool recall,unsigned frame){
-    constexpr std::array<int,10> in{-1,5,6,6,7,7,0,0,0,0},out{-1,0,0,0,1,1,2,2,3,3};
+    constexpr std::array<int,10> in{-1,5,6,6,7,7,7,7,7,7},out{-1,0,0,0,1,1,2,2,3,3};
     return frame<10?(recall?in[frame]:out[frame]):-1;
 }
 inline int followerEmotePattern(unsigned kind,unsigned frame){

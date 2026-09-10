@@ -108,3 +108,11 @@ The same native follower acceptance also passed on FireRed US 1.0. A native
 LeafGreen wager battle verified the winner received P101 net, the loser paid
 P101, both original parties/positions were restored, and native result messages
 were readable. No wager phase wrote a native game save.
+
+## Follower animation row correction (0.26.6)
+
+Send-out selects source cells 0 through 3; recall selects cells 5 through 7
+without returning to the top row. Tests reject blank or opposite-row cells and
+verify that finished effects select no cell. The supplied PNG remains unchanged.
+The runtime refreshes the native framebuffer before composition, and the world
+renderer clears its host-object layer before drawing one current cell per follower.
