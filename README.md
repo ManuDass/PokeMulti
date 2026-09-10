@@ -15,8 +15,12 @@ The [Releases page](https://github.com/ManuDass/PokeMulti/releases/latest) also
 provides a portable Windows ZIP. Extract the whole folder and open `pokemulti.exe`.
 GitHub's **Code → Download ZIP** contains source code, not the installed game.
 
-Mac downloads are not available yet. Native Intel and Apple Silicon support is
-being evaluated; the Windows executable does not run directly on macOS.
+**Mac preview:** [Apple Silicon (.dmg)](https://github.com/ManuDass/PokeMulti/releases/download/v0.27.0-mac-preview/PokeMulti-0.27.0-macOS-arm64.dmg) · [Intel (.dmg)](https://github.com/ManuDass/PokeMulti/releases/download/v0.27.0-mac-preview/PokeMulti-0.27.0-macOS-x86_64.dmg)
+
+Open the DMG and drag PokéMulti to Applications. Mac builds are previews: gameplay
+on physical Macs remains unverified, and updates are manual. Read the
+[Mac preview notes](https://github.com/ManuDass/PokeMulti/releases/tag/v0.27.0-mac-preview)
+for first-launch instructions and current limitations.
 
 ## Get started
 
@@ -27,6 +31,15 @@ being evaluated; the Windows executable does not run directly on macOS.
    game, ROM revision and application versions on every client. FireRed and
    LeafGreen use separate worlds; a mismatched ROM is refused before loading saves.
 4. Play through your game's New Game/Continue menus as usual.
+
+**Switch games:** Settings & ROM → Change ROM → Update ROM keeps your username
+and friends. The world picker shows only worlds for that exact ROM.
+LeafGreen uses green UI accents; FireRed uses red.
+
+**Shiny rate:** while playing, open Options → World. The host can change the
+world's chance from the game default (1 in 8,192) down to 1 in 1. The setting is
+saved per world and applies to new encounters and random gifts for every player.
+
 
 For internet play, the host forwards the selected **TCP port** (default 38475)
 to their PC and allows the app through Windows Firewall. **Room → Invite friends**
@@ -118,7 +131,7 @@ generated native game-code caches are excluded.
 
 ## Status and credits
 
-**0.26.3 · FRMP 19 · experimental.** FireRed US 1.0 and LeafGreen US 1.1
+**0.26.4 · FRMP 20 · experimental.** FireRed US 1.0 and LeafGreen US 1.1
 boot, play, save and reload.
 Local two-process checks cover room play, native battles and durable trades.
 Full campaign coverage, FireRed US 1.1/LeafGreen US 1.0 gameplay and

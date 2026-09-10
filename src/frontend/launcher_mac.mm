@@ -23,7 +23,7 @@
 #include <cstring>
 extern char** environ;
 namespace {
-enum class Page {Welcome,Profile,Worlds,NewWorld,Host,Join,Settings,Name};
+enum class Page {Welcome,Profile,Worlds,NewWorld,Host,Join,Settings,Name,UpdateRom};
 constexpr ImU32 cream=IM_COL32(244,240,228,255),paper=IM_COL32(255,252,241,255),ink=IM_COL32(35,47,64,255),muted=IM_COL32(102,115,124,255),red=IM_COL32(193,73,55,255);
 std::filesystem::path chooseFile(NSArray<NSString*>* types){
     NSOpenPanel* panel=[NSOpenPanel openPanel];panel.canChooseDirectories=NO;panel.allowsMultipleSelection=NO;panel.allowedFileTypes=types;
@@ -40,11 +40,12 @@ struct Launcher {
     int gameMode=0;bool gameFailed=false;std::string previewCode;
     int port=38475,capacity=4;uint8_t rewards=fr::game::DefaultRewardSharing;bool quit=false,smoke=false,gameSeen=false;
     float scale=1,ox=0,oy=0,yaw=-.22f,pitch=.10f;fr::Image label;pid_t game=0;unsigned frames=0;
+    ImU32 accent()const{return (report?report->gameCode:previewCode)=="BPGE"?IM_COL32(55,131,75,255):red;}
     ImVec2 point(float x,float y)const{return {ox+x*scale,oy+y*scale};}
     void string(std::string_view value,float x,float y,float size,ImU32 color=ink,bool strong=false){ImGui::GetWindowDrawList()->AddText(strong?bold:font,size*scale,point(x,y),color,value.data(),value.data()+value.size());}
     void box(float x,float y,float w,float h,ImU32 color,float radius=12){ImGui::GetWindowDrawList()->AddRectFilled(point(x,y),point(x+w,y+h),color,radius*scale);}
     bool button(const char* text,float x,float y,float w=488,float h=44,bool primary=false){
-        ImGui::SetCursorScreenPos(point(x,y));ImGui::PushStyleColor(ImGuiCol_Button,ImGui::ColorConvertU32ToFloat4(primary?red:IM_COL32(240,244,237,255)));
+        ImGui::SetCursorScreenPos(point(x,y));ImGui::PushStyleColor(ImGuiCol_Button,ImGui::ColorConvertU32ToFloat4(primary?accent():IM_COL32(240,244,237,255)));
         ImGui::PushStyleColor(ImGuiCol_Text,ImGui::ColorConvertU32ToFloat4(primary?IM_COL32_WHITE:ink));
         const bool pressed=ImGui::Button(text,{w*scale,h*scale});ImGui::PopStyleColor(2);return pressed;
     }
@@ -52,7 +53,7 @@ struct Launcher {
     void number(const char* id,int& value,float x,float y,float w=236){ImGui::SetCursorScreenPos(point(x,y));ImGui::SetNextItemWidth(w*scale);ImGui::InputInt(id,&value,0,0);}
     void setName(const std::string& value){name.fill(0);std::copy_n(value.data(),std::min(value.size(),name.size()-1),name.data());}
     void refresh(){
-        if(!profile)return;worlds=fr::listWorlds(data,profile->romSha256);
+        if(!profile||!report||profile->romSha256!=report->sha256){worlds.clear();return;}worlds=fr::listWorlds(data,profile->romSha256);
         if(worlds.empty())worlds.push_back(fr::createWorld(data,"My first world",profile->romSha256));
         selected=std::min(selected,worlds.size()-1);pageIndex=selected/3;
     }
@@ -70,7 +71,10 @@ struct Launcher {
         if(pending.valid()&&pending.wait_for(std::chrono::seconds(0))==std::future_status::ready){
             auto [checked,path]=pending.get();if(!checked.supported())throw std::runtime_error(checked.error);
             romPath=path;report=checked;label=fr::cartridgeArtwork(path,data/"artwork"/checked.sha256,checked.gameCode);updateCartridge();
-            if(profile){profile->romPath=path;profile->romSha256=checked.sha256;fr::saveProfile(data/"profile.cfg",*profile);refresh();page=Page::Worlds;}
+            if(profile){
+                if(profile->romPath==path&&profile->romSha256==checked.sha256){refresh();page=Page::Worlds;}
+                else page=Page::UpdateRom;
+            }
             else{page=Page::Profile;setName("");}status="ROM verified. Stored locally.";
         }
         if(game){int code=0;const auto done=waitpid(game,&code,WNOHANG);if(done==game){game=0;SDL_ShowWindow(window);SDL_RaiseWindow(window);gameFailed=!WIFEXITED(code)||WEXITSTATUS(code)!=0;page=gameFailed&&gameMode?(gameMode==2?Page::Join:Page::Host):Page::Worlds;refresh();status=gameFailed?"The game closed with an error. Open Settings > Runtime log for details.":"Your world is closed.";
@@ -78,6 +82,8 @@ struct Launcher {
     }
     void launch(int mode){
         if(!profile||!report||game||pending.valid())return;
+        if(profile->romSha256!=report->sha256)throw std::runtime_error("Update the selected ROM before opening a world.");
+        if(mode!=2&&worlds.at(selected).romHash!=report->sha256)throw std::runtime_error("Select a world for this ROM.");
         if(mode&&(strlen(key.data())<8||strlen(key.data())>64))throw std::runtime_error("Use a room key of 8–64 characters.");
         if(port<1||port>65535||capacity<2||capacity>32)throw std::runtime_error("Choose a valid port and a player limit from 2 to 32.");
         if(mode==2&&!fr::online::validConnectionIPv4(address.data()))throw std::runtime_error("Enter your friend's IPv4 address.");
@@ -100,11 +106,16 @@ struct Launcher {
         auto& io=ImGui::GetIO();io.FontGlobalScale=scale;
         ImGui::SetNextWindowPos({0,0});ImGui::SetNextWindowSize({float(w),float(h)});
         ImGui::Begin("PokéMulti",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoScrollWithMouse|ImGuiWindowFlags_NoScrollbar);
-        box(0,0,1040,700,cream,0);box(0,0,1040,8,red,0);
+        const bool leaf=(report?report->gameCode:previewCode)=="BPGE";
+        auto& colors=ImGui::GetStyle().Colors;
+        colors[ImGuiCol_ButtonHovered]=ImGui::ColorConvertU32ToFloat4(leaf?IM_COL32(210,233,201,255):IM_COL32(246,220,210,255));
+        colors[ImGuiCol_ButtonActive]=ImGui::ColorConvertU32ToFloat4(leaf?IM_COL32(179,211,165,255):IM_COL32(231,193,180,255));
+        colors[ImGuiCol_CheckMark]=ImGui::ColorConvertU32ToFloat4(accent());
+        box(0,0,1040,700,cream,0);box(0,0,1040,8,accent(),0);
         ImGui::GetWindowDrawList()->AddImage((ImTextureID)(intptr_t)logo,point(40,36),point(88,84));
         string("PokéMulti",105,34,28,ink,true);string("YOUR GAMES. TOGETHER.",106,73,10,muted);
         string(std::string("MAC PREVIEW / ")+fr::BuildVersion,434,53,12,muted);
-        if(profile){string("ONLINE USERNAME",678,30,12,muted);string(profile->playerName,678,53,16,ink,true);if(button("Edit",909,47,88,38)){setName(profile->playerName);page=Page::Name;}}
+        if(profile){string("ONLINE USERNAME",678,30,12,muted);string(profile->playerName,678,53,16,ink,true);if(page!=Page::UpdateRom&&!pending.valid()&&report&&report->sha256==profile->romSha256&&button("Edit",909,47,88,38)){setName(profile->playerName);page=Page::Name;}}
         box(40,121,370,490,IM_COL32(28,34,44,255),22);box(433,121,567,490,paper,22);
         string("ON YOUR SHELF",69,148,12,IM_COL32(187,198,203,255));string("Pick up your adventure.",69,183,20,IM_COL32_WHITE,true);
         ImGui::GetWindowDrawList()->AddImage((ImTextureID)(intptr_t)cartridge,point(40,205),point(410,525));
@@ -113,10 +124,19 @@ struct Launcher {
         string("DRAG TO ROTATE",168,470,10,IM_COL32(160,179,187,255));string(fr::narrow(fr::cartridgeStyle(report?report->gameCode:previewCode).title),69,506,22,IM_COL32_WHITE,true);
         if(button("Choose label art",70,550,310,36)&&report){auto file=chooseFile(@[@"png",@"jpg",@"jpeg"]);if(!file.empty()){label=fr::readImage(file);updateCartridge();auto target=data/"artwork"/report->sha256/"label.png";std::filesystem::create_directories(target.parent_path());std::filesystem::copy_file(file,target,std::filesystem::copy_options::overwrite_existing);}}
         if(pending.valid()){string("Checking your ROM...",472,199,24,ink,true);}
-        else if(page==Page::Welcome){string("WELCOME",472,157,12,red);string("Your next adventure starts here.",472,198,24,ink,true);string("Choose English FireRed or LeafGreen US 1.0 / 1.1.\nA .gba file or ZIP with one .gba is supported.",472,290,18,muted);if(button("Select ROM",472,399,488,54,true))chooseRom();}
+        else if(page==Page::Welcome){string("WELCOME",472,157,12,accent());string("Your next adventure starts here.",472,198,24,ink,true);string("Choose English FireRed or LeafGreen US 1.0 / 1.1.\nA .gba file or ZIP with one .gba is supported.",472,290,18,muted);if(button("Select ROM",472,399,488,54,true))chooseRom();}
+        else if(page==Page::UpdateRom){
+            string("ROM VERIFIED",472,157,12,accent());string("Switch your cartridge.",472,198,28,ink,true);
+            string(fr::revisionName(report->revision),472,272,22,ink,true);
+            string("Your world list will show only saves for this ROM.",472,325,18,muted);
+            if(button("Update ROM",472,390,488,54,true)){profile=fr::updateProfileRom(data/"profile.cfg",romPath,report->sha256);selected=pageIndex=0;refresh();page=Page::Worlds;status="ROM updated. Showing worlds for this cartridge.";}
+            if(button("Choose another ROM",472,461,236,44))chooseRom();
+            if(button("Cancel",724,461,236,44))validate(profile->romPath);
+            string("Your username and friends stay with you.\nSwitch back anytime to see your other worlds.",472,533,16,muted);
+        }
         else if(page==Page::Profile||page==Page::Name||page==Page::NewWorld){
             const bool world=page==Page::NewWorld,rename=page==Page::Name;
-            string(world?"NEW WORLD":"YOUR PROFILE",472,157,12,red);string(world?"A fresh adventure.":rename?"A new name. Same adventure.":"Make it your adventure.",472,198,26,ink,true);
+            string(world?"NEW WORLD":"YOUR PROFILE",472,157,12,accent());string(world?"A fresh adventure.":rename?"A new name. Same adventure.":"Make it your adventure.",472,198,26,ink,true);
             string(world?"WORLD NAME":"ONLINE USERNAME",472,279,12,muted);field("##name",name.data(),name.size(),472,309);
             if(button(world?"Create world":rename?"Save username":"Create profile",472,390,488,54,true)){
                 if(world){auto created=fr::createWorld(data,name.data(),profile->romSha256);refresh();for(size_t i=0;i<worlds.size();++i)if(worlds[i].id==created.id)selected=i;pageIndex=selected/3;}
@@ -127,7 +147,7 @@ struct Launcher {
             if(profile&&button("Cancel",472,463))page=Page::Worlds;
             string(world?"Each world keeps its own trainers, teams and story.":"Used in rooms, chat and your friends list.\nYour game chooses its trainer name separately.",472,533,16,muted);
         }else if(page==Page::Worlds){
-            string("YOUR WORLDS",472,153,12,red);string("Choose your next adventure.",472,192,27,ink,true);
+            string(report&&report->gameCode=="BPGE"?"YOUR LEAFGREEN WORLDS":"YOUR FIRERED WORLDS",472,153,12,accent());string("Choose your next adventure.",472,192,27,ink,true);
             for(size_t row=0;row<3&&pageIndex*3+row<worlds.size();++row){const auto i=pageIndex*3+row;if(button((worlds[i].name+"##world"+std::to_string(i)).c_str(),472,244+row*48,488,41,i==selected))selected=i;}
             ImGui::BeginDisabled(!pageIndex);if(button("Previous",472,393,138,28))--pageIndex;ImGui::EndDisabled();
             string(std::to_string(pageIndex+1)+" / "+std::to_string((worlds.size()+2)/3),660,398,14,muted);
@@ -137,7 +157,7 @@ struct Launcher {
             if(button("Settings",472,545,236,36))page=Page::Settings;
             if(button("Program updates",724,545,236,36))SDL_OpenURL("https://github.com/ManuDass/PokeMulti/releases");
         }else if(page==Page::Host||page==Page::Join){
-            const bool host=page==Page::Host;string(host?"HOST WORLD":"JOIN A FRIEND",472,153,12,red);string(host?worlds.at(selected).name:"Adventure together.",472,192,27,ink,true);
+            const bool host=page==Page::Host;string(host?"HOST WORLD":"JOIN A FRIEND",472,153,12,accent());string(host?worlds.at(selected).name:"Adventure together.",472,192,27,ink,true);
             if(!host){string("HOST IPv4 ADDRESS",472,238,12,muted);field("##address",address.data(),address.size(),472,265,314);if(button("Same PC",802,265,158,36))SDL_strlcpy(address.data(),"127.0.0.1",address.size());}
             string("ROOM KEY",472,host?239:311,12,muted);field("##key",key.data(),65,472,host?266:338);
             string("PORT",472,host?312:384,12,muted);number("##port",port,472,host?338:410);
@@ -146,7 +166,7 @@ struct Launcher {
             }else if(button("Paste invite",724,410,236,36)){char* text=SDL_GetClipboardText();auto invite=fr::online::parseConnectionInvite(text?text:"");SDL_free(text);if(!invite)throw std::runtime_error("Clipboard does not contain a valid invite.");snprintf(address.data(),address.size(),"%s",invite->address.c_str());snprintf(key.data(),key.size(),"%s",invite->key.c_str());port=invite->port;}
             if(button(host?"Host selected world":"Join adventure",472,492,488,46,true))launch(host?1:2);if(button("Back to worlds",472,549,488,36))page=Page::Worlds;
         }else if(page==Page::Settings){
-            string("SETTINGS",472,153,12,red);string("Your setup, at a glance.",472,192,28,ink,true);
+            string("SETTINGS",472,153,12,accent());string("Your setup, at a glance.",472,192,28,ink,true);
             if(button("Change ROM",472,260))chooseRom();if(button("Open worlds folder",472,320))openPath(data/"worlds");if(button("Runtime log",472,380))openPath(data/"runtime.log");
             string("Mac preview uses the bundled interpreter.\nKeyboard and SDL controllers are supported.\nPoké Ball Plus Bluetooth support is Windows-only.",472,448,16,muted);
             if(button("Back to worlds",472,545))page=Page::Worlds;

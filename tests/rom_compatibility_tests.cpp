@@ -1,4 +1,9 @@
 #include "rom/rom.hpp"
+#include "frontend/profile.hpp"
+#include "frontend/world_store.hpp"
+#include "game/shiny.hpp"
+#include <fstream>
+#include <random>
 #include "game/rom_layout.hpp"
 #include <algorithm>
 #include <iostream>
@@ -20,6 +25,34 @@ int main(){try{
     forged[0xb0]='0';forged[0xb1]='1';forged[0xb2]=0x96;forged[0xbc]=1;
     uint8_t sum=0;for(size_t i=0xa0;i<=0xbc;++i)sum=uint8_t(sum-forged[i]);forged[0xbd]=uint8_t(sum-0x19);
     check(fr::inspectRom(forged).error.find("Modified")!=std::string::npos,"Forged valid LeafGreen header bypassed hash validation");
-    std::cout<<"PASS: platform hashes, LeafGreen identity, revision-specific hooks and forged-ROM rejection\n";
+    std::mt19937 random(8427);unsigned forms=0;
+    for(unsigned i=0;i<4096;++i){
+        const uint32_t p=random(),ot=random();
+        for(bool unown:{false,true}){
+            const auto shiny=fr::game::shinyPersonality(p,ot,true,unown,random());
+            check(fr::game::isShiny(shiny,ot)&&(unown||shiny%25==p%25)&&(shiny&1)==(p&1),"Shiny traits changed");
+            if(unown){check(fr::game::unownForm(shiny)==fr::game::unownForm(p),"Unown form changed");forms|=1u<<fr::game::unownForm(p);}
+            else check((shiny&255)==(p&255),"Gender changed");
+            const auto normal=fr::game::shinyPersonality(shiny,ot,false,unown,random());
+            check(!fr::game::isShiny(normal,ot)&&normal%25==shiny%25&&(normal&1)==(p&1),"Non-shiny traits changed");
+            if(unown)check(fr::game::unownForm(normal)==fr::game::unownForm(p),"Non-shiny Unown form changed");
+            else check((normal&255)==(p&255),"Non-shiny gender changed");
+        }
+    }
+    check(forms==0x0fffffff,"Missing Unown form coverage");
+    const auto root=std::filesystem::temp_directory_path()/("pokemulti-profile-test-"+fr::worldRandomId());
+    std::filesystem::create_directories(root);
+    const fr::Profile original{root/"FireRed.zip",std::string(64,'a'),"Same Trainer"};
+    fr::saveProfile(root/"profile.cfg",original);
+    for(const auto* name:{"identity.cfg","identity.key","checkpoint.pmsv","friends.cfg"}){std::ofstream f(root/name,std::ios::binary);f<<"unchanged-personal-data";}
+    const auto leaf=fr::updateProfileRom(root/"profile.cfg",root/"LeafGreen.zip",std::string(64,'b'));
+    check(leaf.playerName==original.playerName&&leaf.romSha256==std::string(64,'b'),"ROM update changed username or failed selection");
+    for(const auto* name:{"identity.cfg","identity.key","checkpoint.pmsv","friends.cfg"}){std::ifstream f(root/name,std::ios::binary);std::string value((std::istreambuf_iterator<char>(f)),{});check(value=="unchanged-personal-data","ROM update changed personal data");}
+    bool rejected=false;try{fr::updateProfileRom(root/"profile.cfg",root/"broken.zip","bad");}catch(const std::exception&){rejected=true;}
+    check(rejected&&fr::loadProfile(root/"profile.cfg")==leaf,"Rejected ROM update damaged profile");
+    check(fr::updateProfileRom(root/"profile.cfg",original.romPath,original.romSha256)==original,"Switching back changed username");
+    // Only this test's newly created, random temporary directory is removed.
+    std::filesystem::remove_all(root);
+    std::cout<<"PASS: platform hashes, ROM identity, shiny traits and profile-preserving ROM switching\n";
     return 0;
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

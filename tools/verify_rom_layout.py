@@ -24,6 +24,7 @@ for variant in variants:
     tables.append(rows)
 
 count = 0
+mapped_addresses = set()
 for line in (root / 'src/game/rom_layout.hpp').read_text().splitlines():
     match = re.fullmatch(r'\s*\{(0x[0-9a-f]{8}), \{(.+)\}\}, // (\S+)(?: \+ (0x[0-9a-f]+))?', line)
     if not match:
@@ -36,9 +37,16 @@ for line in (root / 'src/game/rom_layout.hpp').read_text().splitlines():
         raise SystemExit('Hook ABI requires review: ' + name)
     if actual != expected or actual[0] != int(canonical, 16):
         raise SystemExit('Incorrect ROM mapping: ' + name)
+    mapped_addresses.add(int(canonical, 16))
     count += 1
 if not count:
     raise SystemExit('No ROM mappings found.')
+
+# Also audit direct calls, so a new hook cannot refer to a missing mapping.
+for path in (root / 'src/game').glob('world*'):
+    for value in re.findall(r'gameAddress\((0x[0-9a-fA-F]+)\)', path.read_text()):
+        if int(value, 16) not in mapped_addresses:
+            raise SystemExit('Unmapped game call in ' + path.name + ': ' + value)
 
 ram_count = 0
 files = list((root / 'src/game').glob('world*')) + [root / 'src/game/wager_wallet.inc']

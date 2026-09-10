@@ -1,6 +1,6 @@
 # Multiplayer and friends
 
-src/online/session.cpp implements a host-authoritative TCP room with a configurable 2-32 player limit. The wire protocol is FRMP version 19 with bounded packets/queues, validated UTF-8 identities and trainer fields, connection limits, room keys, heartbeat timeouts and explicit invitation acceptance. Winsock readiness events and a command wake event avoid timer-granularity delays on every serial word.
+src/online/session.cpp implements a host-authoritative TCP room with a configurable 2-32 player limit. The wire protocol is FRMP version 20 with bounded packets/queues, validated UTF-8 identities and trainer fields, connection limits, room keys, heartbeat timeouts and explicit invitation acceptance. Winsock readiness events and a command wake event avoid timer-granularity delays on every serial word.
 
 The host assigns room slots. Peers publish only semantic overworld state: map, tile, pixel position, elevation, facing, local avatar graphic index, active flag, animation image/flip/offset, follower species and path position, sequence and sample timestamp. Receivers draw from their own ROM. The game thread owns guest state; networking works on copies. World sessions also exchange bounded, authenticated checkpoint bundles containing each trainer's flash save and transaction receipts. No ROM, game assets, arbitrary memory or debugger commands are sent. See [world storage](WORLDS.md).
 
@@ -17,7 +17,7 @@ The room sends only the occupied-slot count and six Egg bits, not species, HP, i
 The completed native field snapshot selects hidden NPC records by that snapshot's map, even when the previous frame still names the city or route being left. Incoming NPC movement also checks that the live native map matches the multiplayer frame before applying a shared pose. This prevents a Viridian NPC removal record from being sent as Route 22 data and rejected as an invalid local world update. Network validation continues to reject mixed-map records. Version 0.22.1 fixed that transition crash without changing FRMP 17. Current clients require FRMP 19.
 
 ## Movement presentation
-State is sampled every guest frame, sent at a 16 ms network cadence and relayed immediately by the host. Membership snapshots do not add a second movement interval. An 80 ms timestamped history interpolates pixel positions; facing, animation and followers use that same playback time. Duplicate/stale sequence numbers are ignored. Stops hold their final position without extrapolation; map changes, large discontinuities and slot identity changes reset history. Clock wrap and stalled peers are bounded. All clients in a room must use protocol v19.
+State is sampled every guest frame, sent at a 16 ms network cadence and relayed immediately by the host. Membership snapshots do not add a second movement interval. An 80 ms timestamped history interpolates pixel positions; facing, animation and followers use that same playback time. Duplicate/stale sequence numbers are ignored. Stops hold their final position without extrapolation; map changes, large discontinuities and slot identity changes reset history. Clock wrap and stalled peers are bounded. All clients in a room must use protocol v20.
 
 The camera transform is inverted from the local ROM's actual tile, signed sub-tile remainder and total pixel offsets. It is updated while moving. Avatar animation image indices and OAM flips come from the real sprite, replacing the old guessed direction frames.
 
@@ -118,3 +118,27 @@ Camp is now in the native Start menu between Bag and the player name. G sets up/
 Only the host creates join/leave events from accepted connections. They appear once in the chat transcript and briefly in the game frame header, without becoming player speech bubbles. T invites a trade; chat is focused by clicking its input.
 
 Fly, teleport, Escape Rope and blackout hooks publish an authenticated departure anchored to the trainer's last field or battle position. Same-map spectators see the trainer turn repeatedly, then rise offscreen over 1.4 seconds. Ordinary doorway travel keeps its normal presentation. The game's terrain and UI compositor still controls clipping.
+
+## Shiny rate
+
+Options → World exposes a host-owned chance of 1 in N, for N from 1 to 8,192.
+The default is the cartridge's original 1-in-8,192 behavior, with no personality
+or RNG override. A custom setting affects newly generated wild Pokémon,
+starters and random gifts on every client. It does not recolor existing teams,
+stored Pokémon, trades, released Pokémon, already-created roamers or eggs, and
+it preserves the cartridge's restrictions on preset/no-shiny NPC Pokémon.
+
+The host can Apply a new rate or restore the default during gameplay. Guests
+see the current setting but cannot edit it. The value persists atomically in
+the world folder's `shiny-rate.cfg`, survives restarting or reconnecting, and
+does not carry into another world. FRMP 20 sends it before a joining trainer's
+checkpoint; old clients must update.
+
+Native hooks adjust only a new creator's personality variable before its
+encrypted data is initialized. OT identity is unchanged, and the original
+shiny predicate remains intact, so caught Pokémon stay shiny after a save,
+trade or a later rate change. Nature, gender and ability parity are retained.
+For a new Unown, its letter takes priority when that letter/nature/OT combination
+cannot be shiny under the native rules; only then is a compatible nature used.
+The calculation follows the [original generation rules](https://github.com/pret/pokefirered/blob/master/src/pokemon.c)
+and [shiny constants](https://github.com/pret/pokefirered/blob/master/include/constants/pokemon.h).

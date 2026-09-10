@@ -58,6 +58,12 @@ std::optional<Profile> loadProfile(const std::filesystem::path& file) {
     validateProfile(result);
     return result;
 }
+Profile updateProfileRom(const std::filesystem::path& file, const std::filesystem::path& rom, const std::string& hash) {
+    auto profile=loadProfile(file);
+    if(!profile)throw std::runtime_error("Set up your username before updating the ROM.");
+    profile->romPath=rom;profile->romSha256=hash;
+    saveProfile(file,*profile);return *profile;
+}
 Profile renameProfile(const std::filesystem::path& file, const std::string& name) {
     auto profile=loadProfile(file);
     if(!profile)throw std::runtime_error("Create a local profile before editing its username.");

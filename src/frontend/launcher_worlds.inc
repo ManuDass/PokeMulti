@@ -1,5 +1,5 @@
 void Launcher::refreshWorlds(){
-    if(!profile_)return;
+    if(!profile_||!validated_||profile_->romSha256!=validated_->report.sha256){worlds_.clear();return;}
     worlds_=listWorlds(dataRoot_,profile_->romSha256);
     if(worlds_.empty()){
         auto world=createWorld(dataRoot_,"My first world",profile_->romSha256);
@@ -26,7 +26,7 @@ void Launcher::worldEdit(unsigned index,const std::wstring& value,D2D1_RECT_F re
 std::wstring Launcher::worldEditText(unsigned index){wchar_t value[128]{};GetWindowTextW(worldEdits_[index],value,128);return value;}
 void Launcher::layoutWorlds(){
     if(page_==Page::Menu){
-        if(worlds_.empty())refreshWorlds();
+        if(worlds_.empty()||worlds_.front().romHash!=profile_->romSha256)refreshWorlds();
         for(size_t row=0;row<3&&worldPage_*3+row<worlds_.size();++row){const auto index=worldPage_*3+row;button(240+int(row),widen(worlds_[index].name),D2D1::RectF(472,244+row*48,960,285+row*48),index==selectedWorld_);}
         button(203,L"Previous",D2D1::RectF(472,393,610,421),false,worldPage_>0);button(204,L"Next",D2D1::RectF(822,393,960,421),false,(worldPage_+1)*3<worlds_.size());
         button(Continue,L"Play world",D2D1::RectF(472,438,708,482),true,!gameProcess_);button(Host,L"Host world",D2D1::RectF(724,438,960,482),false,!gameProcess_);
@@ -48,12 +48,12 @@ void Launcher::layoutWorlds(){
 }
 void Launcher::paintWorlds(){
     if(page_==Page::Menu){
-        text(L"YOUR WORLDS",D2D1::RectF(472,153,960,181),12,Red,true);text(L"Choose your next adventure.",D2D1::RectF(472,191,960,235),27,Ink,true);
+        text(validated_&&validated_->report.gameCode=="BPGE"?L"YOUR LEAFGREEN WORLDS":L"YOUR FIRERED WORLDS",D2D1::RectF(472,153,960,181),12,accent(),true);text(L"Choose your next adventure.",D2D1::RectF(472,191,960,235),27,Ink,true);
         text(std::to_wstring(worldPage_+1)+L" / "+std::to_wstring((worlds_.size()+2)/3),D2D1::RectF(660,397,780,421),14,Muted);return;
     }
-    if(page_==Page::NewWorld){text(L"NEW WORLD",D2D1::RectF(472,153,960,181),12,Red,true);text(L"A fresh adventure.",D2D1::RectF(472,191,960,235),28,Ink,true);text(L"WORLD NAME",D2D1::RectF(472,278,960,306),12,Muted,true);text(L"Each world keeps its own trainers, teams and story.",D2D1::RectF(472,530,950,580),16,Muted);return;}
+    if(page_==Page::NewWorld){text(L"NEW WORLD",D2D1::RectF(472,153,960,181),12,accent(),true);text(L"A fresh adventure.",D2D1::RectF(472,191,960,235),28,Ink,true);text(L"WORLD NAME",D2D1::RectF(472,278,960,306),12,Muted,true);text(L"Each world keeps its own trainers, teams and story.",D2D1::RectF(472,530,950,580),16,Muted);return;}
     const bool host=page_==Page::HostWorld;
-    text(host?L"HOST WORLD":L"JOIN A FRIEND",D2D1::RectF(472,153,960,181),12,Red,true);
+    text(host?L"HOST WORLD":L"JOIN A FRIEND",D2D1::RectF(472,153,960,181),12,accent(),true);
     text(host?widen(worlds_.at(selectedWorld_).name):L"Adventure together.",D2D1::RectF(472,191,960,235),27,Ink,true);
     if(!host)text(L"HOST IPv4 ADDRESS",D2D1::RectF(472,240,960,264),12,Muted,true);
     text(L"ROOM KEY",D2D1::RectF(472,host?240:312,960,host?264:336),12,Muted,true);

@@ -31,7 +31,7 @@ using SocketLength=int;
 using SocketLength=socklen_t;
 #endif
 using Clock=std::chrono::steady_clock;
-enum Type:uint8_t {Hello=1,Welcome=2,State=3,Snapshot=4,Invite=5,Reply=6,CableOff=7,Ready=8,SerialStart=9,SerialReply=10,Notice=11,Motion=12,ChatSend=13,ChatBroadcast=14,WorldUpdate=15,WorldSnapshot=16,StoryUpdate=17,StorySnapshot=18,EncounterClaim=19,EncounterResult=20,EncounterRelease=21,EncounterSnapshot=22,WalletUpdate=23,WagerSnapshot=24,WagerEvent=25,CampSnapshot=26,BattleSnapshot=27,ReleasedOffer=28,ReleasedClaim=29,ReleasedFinish=30,ReleasedSnapshot=31,ReleasedResult=32,CampaignSnapshot=33,BattleStage=34,InvitationCancel=35,EncounterCheckpoint=36,Membership=37,DepartureEvent=38,PlayerCheckpoint=39,CheckpointAck=40,CheckpointRequest=41,JoinRejected=42};
+enum Type:uint8_t {Hello=1,Welcome=2,State=3,Snapshot=4,Invite=5,Reply=6,CableOff=7,Ready=8,SerialStart=9,SerialReply=10,Notice=11,Motion=12,ChatSend=13,ChatBroadcast=14,WorldUpdate=15,WorldSnapshot=16,StoryUpdate=17,StorySnapshot=18,EncounterClaim=19,EncounterResult=20,EncounterRelease=21,EncounterSnapshot=22,WalletUpdate=23,WagerSnapshot=24,WagerEvent=25,CampSnapshot=26,BattleSnapshot=27,ReleasedOffer=28,ReleasedClaim=29,ReleasedFinish=30,ReleasedSnapshot=31,ReleasedResult=32,CampaignSnapshot=33,BattleStage=34,InvitationCancel=35,EncounterCheckpoint=36,Membership=37,DepartureEvent=38,PlayerCheckpoint=39,CheckpointAck=40,CheckpointRequest=41,JoinRejected=42,ShinyRate=43};
 void byte(Bytes& b,unsigned v){b.push_back(uint8_t(v));}
 void word(Bytes& b,unsigned v){byte(b,v);byte(b,v>>8);}
 void dword(Bytes& b,uint32_t v){word(b,v);word(b,v>>16);}
@@ -172,6 +172,7 @@ struct Session::Impl {
     std::map<uint32_t,bool> claims;
     uint32_t waitingClaim=0;
     void broadcast(Type type,const Bytes& bytes){for(auto& c:connections)if(c.slot>=0)queue(c,type,bytes);}
+    void emitShinyRate(){Bytes b;dword(b,current.shinyRate);broadcast(ShinyRate,b);}
     void emitBattles(){current.world=worldAuthority.snapshot();Bytes b;for(const auto& battle:current.world.battles)battleState(b,battle);broadcast(BattleSnapshot,b);}
     void emitCamps(){current.world=worldAuthority.snapshot();Bytes b;for(unsigned i=0;i<MaxRoomPlayers;++i){dword(b,current.world.campDecisions[i]);campState(b,current.world.camps[i]);}broadcast(CampSnapshot,b);}
     void emitLeases(){
@@ -269,6 +270,7 @@ struct Session::Impl {
     }
     void route(Type type,const Bytes& body,int from){
         Reader r{body};
+        if(type==ShinyRate)throw std::runtime_error("Only the host can change the shiny rate.");
         if(type==PlayerCheckpoint){
             if(from==0&&worldPlayers){const auto serial=r.u32();Bytes save(r.b.begin()+r.p,r.b.end());worldPlayers->commit(identity,save);current.checkpointAck=serial;return;}
             readCheckpoint(r,from);return;
@@ -357,6 +359,8 @@ struct Session::Impl {
     void receive(Type type,const Bytes& body,int from){
         if(current.hosting&&from>=0){route(type,body,from);return;}
         Reader r{body};
+        if(type==ShinyRate){const auto rate=r.u32();r.end();if(rate<1||rate>8192)throw std::runtime_error("Invalid shiny rate.");current.shinyRate=rate;return;}
+
         if(type==PlayerCheckpoint){readCheckpoint(r,-1);return;}
         if(type==CheckpointAck){const auto serial=r.u32();r.end();if(!current.managedWorld||serial>saveSequence)throw std::runtime_error("Invalid checkpoint receipt.");current.checkpointAck=std::max(current.checkpointAck,serial);return;}
         if(type==CheckpointRequest){const auto serial=r.u32();r.end();if(current.managedWorld)current.checkpointRequest=std::max(current.checkpointRequest,serial);return;}
@@ -456,7 +460,7 @@ struct Session::Impl {
             if(worldPlayers&&!worldPlayers->authenticate(id,secret)){rejectJoin(c,"This trainer's world identity does not match. Use the original player profile.");return;}
             if(!worldPlayers&&!romHash.empty()){rejectJoin(c,"The host must select a saved world in the launcher.");return;}
             transfers[slot]={};c.slot=slot;lastChat[slot]=0;Peer p;p.slot=uint8_t(slot);p.id=id;p.name=trainerName;p.chatAfter=chatSequence;current.peers.push_back(p);
-            Bytes b;byte(b,unsigned(slot));byte(b,current.rewardPolicy);byte(b,current.capacity);byte(b,current.managedWorld);string(b,current.worldId);string(b,current.worldName);queue(c,Welcome,b);emitSnapshot();emitStory(worldAuthority.snapshot().story);emitLeases();emitCamps();emitBattles();emitWagers();emitReleased();emitCampaign();membership(p,1);if(worldPlayers)sendCheckpoint(slot,1,worldPlayers->load(id));return;
+            Bytes b;byte(b,unsigned(slot));byte(b,current.rewardPolicy);byte(b,current.capacity);byte(b,current.managedWorld);string(b,current.worldId);string(b,current.worldName);queue(c,Welcome,b);emitShinyRate();emitSnapshot();emitStory(worldAuthority.snapshot().story);emitLeases();emitCamps();emitBattles();emitWagers();emitReleased();emitCampaign();membership(p,1);if(worldPlayers)sendCheckpoint(slot,1,worldPlayers->load(id));return;
         }
         receive(type,payload,c.slot);
     }
@@ -487,7 +491,7 @@ struct Session::Impl {
                         try{
                             unsigned handled=0;
                             while(!bad&&!c.closing&&c.input.size()>=8&&handled++<64){
-                                if(c.input[0]!='F'||c.input[1]!='R'||c.input[2]!='M'||c.input[3]!='P'||c.input[4]!=RoomProtocolVersion)throw std::runtime_error("Incompatible room protocol");
+                                if(c.input[0]!='F'||c.input[1]!='R'||c.input[2]!='M'||c.input[3]!='P'||c.input[4]!=RoomProtocolVersion)throw std::runtime_error("Incompatible room version. Update Pokemulti on both computers.");
                                 const size_t length=size_t(c.input[6])|(size_t(c.input[7])<<8);if(length>16384)throw std::runtime_error("Oversized room packet");
                                 if(c.input.size()<8+length)break;
                                 const auto type=Type(c.input[5]);Bytes payload(c.input.begin()+8,c.input.begin()+8+length);c.input.erase(c.input.begin(),c.input.begin()+8+length);
@@ -538,7 +542,15 @@ struct Session::Impl {
         if(!textSafe(roomKey,64)||roomKey.size()<8)throw std::runtime_error("Use a room key of 8 to 64 characters.");
         wallets={};invitationSequence=0;if(host)wagers.open(accountFolder.empty()?std::filesystem::path{}:accountFolder/"wagers-host.cfg");
         releaseBroadcasts.clear();releaseReplies.clear();releaseFlushed=0;if(host)releaseBook.open(accountFolder.empty()?std::filesystem::path{}:accountFolder/"released-world.cfg");
-        current={};joinRejected=false;if(host)current.released=releaseBook.records();current.rewardPolicy=rewards;current.capacity=capacity;current.managedWorld=host&&bool(worldPlayers);if(worldPlayers){current.worldId=worldPlayers->world().id;current.worldName=worldPlayers->world().name;current.checkpointReady=true;}transfers={};committedRequests={};downloadedCheckpoint.clear();saveSequence=0;worldAuthority={};worldAuthority.rewardRules(rewards);localWorld={};worldSent=0;claims.clear();waitingClaim=0;lastChat={};submittedChat=0;chatSequence=0;current.hosting=host;current.localWorld=host&&address=="offline";current.port=port;current.running=true;key=roomKey;quit=false;
+        current={};joinRejected=false;
+        if(host){
+            const auto settings=accountFolder/"shiny-rate.cfg";
+            if(!accountFolder.empty()&&std::filesystem::exists(settings)){
+                const auto bytes=readWorldFile(settings,32);std::istringstream input(std::string(bytes.begin(),bytes.end()));uint32_t rate=0;std::string extra;
+                if(!(input>>rate)||rate<1||rate>8192||(input>>extra))throw std::runtime_error("Invalid world shiny rate.");current.shinyRate=rate;
+            }
+            current.released=releaseBook.records();
+        }current.rewardPolicy=rewards;current.capacity=capacity;current.managedWorld=host&&bool(worldPlayers);if(worldPlayers){current.worldId=worldPlayers->world().id;current.worldName=worldPlayers->world().name;current.checkpointReady=true;}transfers={};committedRequests={};downloadedCheckpoint.clear();saveSequence=0;worldAuthority={};worldAuthority.rewardRules(rewards);localWorld={};worldSent=0;claims.clear();waitingClaim=0;lastChat={};submittedChat=0;chatSequence=0;current.hosting=host;current.localWorld=host&&address=="offline";current.port=port;current.running=true;key=roomKey;quit=false;
         if(host){
             campaign.open(accountFolder,freshCampaign);
             if(campaign.ready()){const auto saved=campaign.baseline(rewards);for(size_t i=0;i<saved.size();i+=128)worldAuthority.story(0,{saved.begin()+i,saved.begin()+std::min(saved.size(),i+128)},true,i+128>=saved.size());}
@@ -578,6 +590,16 @@ void Session::playLocalWorld(){impl_->start(true,"offline",0,randomId());}
 void Session::join(const std::string& ip,uint16_t port,const std::string& key){impl_->start(false,ip,port,key);}
 void Session::stop(){impl_->shutdown();std::lock_guard lock(impl_->mutex);impl_->current={};impl_->current.message="You left the room.";}
 Status Session::status() const{std::lock_guard lock(impl_->mutex);auto state=impl_->current;if(state.hosting&&state.managedWorld&&state.checkpointRequest)for(const auto& p:state.peers)if(p.slot&&impl_->committedRequests[p.slot]<state.checkpointRequest)++state.checkpointWaiting;return state;}
+void Session::setShinyRate(uint32_t denominator){
+    if(denominator<1||denominator>8192)throw std::runtime_error("Choose a shiny rate from 1 in 1 to 1 in 8192.");
+    std::lock_guard lock(impl_->mutex);
+    if(!impl_->current.running||!impl_->current.hosting)throw std::runtime_error("Only the world host can change the shiny rate.");
+    if(!impl_->accountFolder.empty()){
+        const auto value=std::to_string(denominator)+"\n";
+        atomicWorldFile(impl_->accountFolder/"shiny-rate.cfg",{reinterpret_cast<const uint8_t*>(value.data()),value.size()});
+    }
+    impl_->current.shinyRate=denominator;impl_->emitShinyRate();SetEvent(impl_->wake);
+}
 std::string Session::id() const{return impl_->identity;}
 std::string Session::connectionKey() const{std::lock_guard lock(impl_->mutex);return impl_->key;}
 std::vector<std::string> Session::localAddresses() const {

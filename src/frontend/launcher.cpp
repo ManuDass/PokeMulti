@@ -18,7 +18,7 @@ namespace fr {
 namespace {
 constexpr uint32_t Ink = 0x253445, Red = 0xC74C3B, Cream = 0xFFFDF5, Muted = 0x667382, Line = 0xDFDBCE;
 constexpr int Browse = 101, Create = 102, Continue = 103, Host = 104, Join = 105, Settings = 106, Quit = 107, Back = 108, Fullscreen = 109, Probe = 110, Details = 111, Artwork = 112;
-constexpr int EditName=114, SaveName=115, Updates=116, CheckUpdate=117, InstallUpdate=118;
+constexpr int EditName=114, SaveName=115, Updates=116, CheckUpdate=117, InstallUpdate=118, UpdateRom=119;
 D2D1_COLOR_F color(uint32_t rgb) { return D2D1::ColorF(rgb); }
 COLORREF gdiColor(uint32_t rgb) { return RGB((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255); }
 void check(HRESULT hr, const char* message) { if (FAILED(hr)) throw std::runtime_error(message); }
@@ -210,6 +210,8 @@ void Launcher::button(int id, std::wstring label, D2D1_RECT_F rect, bool primary
 }
 #include "launcher_worlds.inc"
 #include "launcher_updates.inc"
+uint32_t Launcher::accent() const {return validated_&&validated_->report.gameCode=="BPGE"?0x37834B:Red;}
+uint32_t Launcher::pressedAccent() const {return validated_&&validated_->report.gameCode=="BPGE"?0x286637:0xAD3D31;}
 void Launcher::layout() {
     RECT rect{}; GetClientRect(window_,&rect);
     scale_ = (std::min)(static_cast<float>(rect.right)/1040.f, static_cast<float>(rect.bottom)/700.f);
@@ -223,10 +225,14 @@ void Launcher::layout() {
     ShowWindow(nameEdit_,SW_HIDE);for(auto edit:worldEdits_)if(edit)ShowWindow(edit,SW_HIDE);
     button(Artwork,artBusy_?L"Loading game art...":L"Choose label art",D2D1::RectF(70,550,380,586),false,validated_.has_value()&&!artBusy_);
     button(Quit,L"Quit",D2D1::RectF(894,639,996,676));
-    if(profile_)button(EditName,L"Edit",D2D1::RectF(909,47,997,85),false,!gameProcess_&&!updateProcess_&&!busy_);
+    if(profile_&&page_!=Page::UpdateRom&&validated_&&validated_->report.sha256==profile_->romSha256)button(EditName,L"Edit",D2D1::RectF(909,47,997,85),false,!gameProcess_&&!updateProcess_&&!busy_);
     if (page_ == Page::Welcome) {
         button(Browse,busy_ ? L"Validating your ROM..." : L"Select ROM",D2D1::RectF(472,399,960,453),true,!busy_);
         button(Updates,L"Update program",D2D1::RectF(472,559,960,596),false,!busy_);
+    } else if(page_==Page::UpdateRom){
+        button(UpdateRom,L"Update ROM",D2D1::RectF(472,390,960,444),true,!busy_);
+        button(Browse,L"Choose another ROM",D2D1::RectF(472,461,708,505),false,!busy_);
+        button(Back,L"Cancel",D2D1::RectF(724,461,960,505),false,!busy_);
     } else if (page_ == Page::Profile||page_==Page::EditName) {
         MoveWindow(nameEdit_,static_cast<int>(offsetX_+472*scale_),static_cast<int>(offsetY_+309*scale_),
             static_cast<int>(488*scale_),static_cast<int>(48*scale_),TRUE);
@@ -258,10 +264,10 @@ void Launcher::drawButton(const DRAWITEMSTRUCT& item) {
     const auto& b = found->second;
     const bool disabled = (item.itemState & ODS_DISABLED) != 0;
     const bool pressed = (item.itemState & ODS_SELECTED) != 0;
-    auto fill = CreateSolidBrush(gdiColor(disabled ? 0xF0EEE7 : b.primary ? (pressed ? 0xAD3D31 : Red) : (pressed ? 0xE7ECED : 0xF5F6F1)));
+    auto fill = CreateSolidBrush(gdiColor(disabled ? 0xF0EEE7 : b.primary ? (pressed ? pressedAccent() : accent()) : (pressed ? 0xE7ECED : 0xF5F6F1)));
     auto outside = CreateSolidBrush(gdiColor(Cream));
     FillRect(item.hDC,&item.rcItem,outside); DeleteObject(outside);
-    auto border = CreatePen(PS_SOLID,1,gdiColor(disabled ? 0xE6E1D7 : b.primary ? Red : 0xCCD3D2));
+    auto border = CreatePen(PS_SOLID,1,gdiColor(disabled ? 0xE6E1D7 : b.primary ? accent() : 0xCCD3D2));
     auto oldBrush = SelectObject(item.hDC,fill);
     auto oldPen = SelectObject(item.hDC,border);
     const int radius = static_cast<int>(12*scale_);
@@ -334,7 +340,7 @@ HRESULT Launcher::drawScene(ID2D1RenderTarget* surface) {
         surface_->SetTransform(D2D1::Matrix3x2F::Identity());
         surface_->Clear(color(0xF4F0E4));
         surface_->SetTransform(D2D1::Matrix3x2F::Scale(scale_,scale_) * D2D1::Matrix3x2F::Translation(offsetX_,offsetY_));
-        panel(D2D1::RectF(0,0,1040,8),Red,0);
+        panel(D2D1::RectF(0,0,1040,8),accent(),0);
         bitmap(logo_,D2D1::RectF(40,36,88,84));
         text(L"Pok\u00e9Multi",D2D1::RectF(105,31,400,69),30,Ink,true);
         text(L"Y O U R   G A M E S .   T O G E T H E R .",D2D1::RectF(107,71,550,94),10,Muted,true);
@@ -357,18 +363,24 @@ HRESULT Launcher::drawScene(ID2D1RenderTarget* surface) {
         panel(D2D1::RectF(437,126,1002,616),0xE6E0D2,18);
         panel(D2D1::RectF(433,121,998,611),Cream,18,Line);
         if (page_ == Page::Welcome) {
-            text(L"WELCOME TO POK\u00c9MULTI",D2D1::RectF(472,158,962,184),12,Red,true);
+            text(L"WELCOME TO POK\u00c9MULTI",D2D1::RectF(472,158,962,184),12,accent(),true);
             text(L"Every journey starts here.",D2D1::RectF(472,199,962,248),28,Ink,true);
             text(L"Bring your own game.\nWe'll check the ROM and get your\nlocal profile ready.",D2D1::RectF(472,266,951,352),18,Muted);
-            text(L"CURRENT SUPPORT: FIRERED US 1.0 / 1.1",D2D1::RectF(472,366,960,391),12,Muted,true);
+            text(L"FIRERED / LEAFGREEN  US 1.0 / 1.1",D2D1::RectF(472,366,960,391),12,Muted,true);
             text(L"Your ROM stays on your computer.\nLoad a GBA file or a ZIP containing one ROM.",D2D1::RectF(472,477,948,551),14,Muted);
+        } else if(page_==Page::UpdateRom){
+            text(L"ROM VERIFIED",D2D1::RectF(472,158,962,183),12,accent(),true);
+            text(L"Switch your cartridge.",D2D1::RectF(472,199,962,248),28,Ink,true);
+            text(widen(revisionName(validated_->report.revision)),D2D1::RectF(472,272,960,306),22,Ink,true);
+            text(L"Your world list will show only saves for this ROM.",D2D1::RectF(472,324,960,370),18,Muted);
+            text(L"Your username and friends stay with you.\nSwitch back anytime to see your other worlds.",D2D1::RectF(472,529,953,584),16,Muted);
         } else if (page_ == Page::Profile||page_==Page::EditName) {
             text(page_==Page::EditName?L"YOUR PROFILE":L"ROM VERIFIED",D2D1::RectF(472,158,962,183),12,0x60794F,true);
             text(page_==Page::EditName?L"A new name. Same adventure.":L"Make it your adventure.",D2D1::RectF(472,199,962,248),26,Ink,true);
             text(L"ONLINE USERNAME",D2D1::RectF(472,278,962,306),12,Muted,true);
             text(L"Used in rooms, chat and your friends list.\nYour in-game trainer name and progress stay the same.",D2D1::RectF(472,529,953,580),14,Muted);
         } else if(page_==Page::Updates){
-            text(L"PROGRAM UPDATES",D2D1::RectF(472,153,960,181),12,Red,true);
+            text(L"PROGRAM UPDATES",D2D1::RectF(472,153,960,181),12,accent(),true);
             text(L"Ready for the next adventure.",D2D1::RectF(472,191,960,235),26,Ink,true);
             text(std::wstring(L"INSTALLED  ")+BuildVersionWide,D2D1::RectF(472,255,960,281),16,Ink,true);
             text(updateStatus_,D2D1::RectF(472,294,960,359),16,Muted);
@@ -376,7 +388,7 @@ HRESULT Launcher::drawScene(ID2D1RenderTarget* surface) {
         } else if (page_==Page::Menu||page_==Page::NewWorld||page_==Page::HostWorld||page_==Page::JoinWorld) {
             paintWorlds();
         } else {
-            text(L"SETTINGS",D2D1::RectF(472,153,962,181),12,Red,true);
+            text(L"SETTINGS",D2D1::RectF(472,153,962,181),12,accent(),true);
             text(L"Your setup, at a glance.",D2D1::RectF(472,191,960,235),28,Ink,true);
             text(L"F3  Diagnostics     F11  Fullscreen",D2D1::RectF(472,556,950,588),14,Muted);
         }
@@ -486,9 +498,9 @@ void Launcher::pollValidation() {
     busy_ = false;
     if (!result.error.empty() || !result.report.supported() || (!expectedHash_.empty() && expectedHash_ != result.report.sha256)) {
         const auto reason = !result.error.empty() ? result.error : !result.report.supported() ? describe(result.report)
-            : "The ROM at your saved path has changed. Select it again to verify a new profile.";
+            : "The ROM at your saved path has changed. Select it again to update your ROM.";
         status_ = L"ROM validation failed. Select a supported FireRed or LeafGreen ROM.";
-        if (!expectedHash_.empty()) { profile_.reset(); validated_.reset(); page_ = Page::Welcome; }
+        if (!expectedHash_.empty()) { validated_.reset(); worlds_.clear(); page_ = Page::Welcome; }
         expectedHash_.clear();
         layout(); error(reason); return;
     }
@@ -501,20 +513,19 @@ void Launcher::pollValidation() {
     log_.write("ROM","Validated " + revisionName(validated_->report.revision) + " SHA-256 " + validated_->report.sha256);
     if (!expectedHash_.empty() && profile_) page_ = Page::Menu;
     else {
-        page_ = Page::Profile;
-        if (profile_) SetWindowTextW(nameEdit_,widen(profile_->playerName).c_str());
+        page_ = profile_?Page::UpdateRom:Page::Profile;
     }
     expectedHash_.clear();
     layout();
     if (page_ == Page::Profile) SetFocus(nameEdit_);
-    else SetFocus(buttons_.at(Settings).window);
+    else SetFocus(buttons_.at(page_==Page::UpdateRom?UpdateRom:Settings).window);
 }
 void Launcher::command(int id) {
     try {
         if(worldCommand(id))return;
         switch (id) {
         case EditName:
-            if(!profile_||gameProcess_||updateProcess_||busy_)return;
+            if(!profile_||!validated_||validated_->report.sha256!=profile_->romSha256||gameProcess_||updateProcess_||busy_)return;
             page_=Page::EditName;SetWindowTextW(nameEdit_,widen(profile_->playerName).c_str());layout();SetFocus(nameEdit_);break;
         case SaveName: {
             if(page_!=Page::EditName||!profile_||gameProcess_)return;
@@ -530,6 +541,12 @@ void Launcher::command(int id) {
         case Continue: playGame(); break;
         case Host: page_=Page::HostWorld;layout();SetWindowTextW(worldEdits_[1],widen(worldRandomId().substr(0,12)).c_str());break;
         case Join: page_=Page::JoinWorld;layout();SetWindowTextW(worldEdits_[1],L"");break;
+        case UpdateRom: {
+            if(page_!=Page::UpdateRom||!profile_||!validated_||busy_)return;
+            profile_=updateProfileRom(dataRoot_/"profile.cfg",validated_->path,validated_->report.sha256);
+            worlds_.clear();selectedWorld_=worldPage_=0;refreshWorlds();page_=Page::Menu;
+            status_=L"ROM updated. Showing worlds for this cartridge.";layout();SetFocus(buttons_.at(Settings).window);break;
+        }
         case Create: {
             if (page_ != Page::Profile || !validated_ || busy_) return;
             wchar_t name[25]{};
@@ -542,7 +559,12 @@ void Launcher::command(int id) {
             layout(); SetFocus(buttons_.at(Settings).window); break;
         }
         case Settings: page_ = Page::Settings; layout(); SetFocus(buttons_.at(Details).window); break;
-        case Back: if(updateProcess_)return;page_ = profile_?Page::Menu:Page::Welcome; layout(); SetFocus(buttons_.at(profile_?Settings:Browse).window); break;
+        case Back:
+            if(updateProcess_||busy_)return;
+            if(profile_&&(!validated_||validated_->report.sha256!=profile_->romSha256)){
+                page_=Page::Welcome;validateAsync(profile_->romPath,profile_->romSha256);break;
+            }
+            page_=profile_?Page::Menu:Page::Welcome;layout();SetFocus(buttons_.at(profile_?Settings:Browse).window);break;
         case Details:
             if (validated_) MessageBoxW(window_,widen(describe(validated_->report)).c_str(),L"ROM verification",MB_OK|MB_ICONINFORMATION);
             break;
@@ -560,11 +582,13 @@ void Launcher::command(int id) {
 }
 void Launcher::playGame(int mode) {
     if (!profile_ || !validated_ || busy_ || gameProcess_||updateProcess_) return;
+    if(profile_->romSha256!=validated_->report.sha256)throw std::runtime_error("Update the selected ROM before opening a world.");
     wchar_t exeBuffer[32768]{}; GetModuleFileNameW(nullptr,exeBuffer,32768);
     const auto exe=std::filesystem::path(exeBuffer).parent_path()/L"pokemulti_game.exe";
     if (!std::filesystem::exists(exe)) throw std::runtime_error("pokemulti_game.exe is missing. Run the build script first.");
     if(worlds_.empty())refreshWorlds();
     const auto world=worlds_.at(selectedWorld_);
+    if(mode!=2&&world.romHash!=validated_->report.sha256)throw std::runtime_error("This world belongs to another ROM. Select a matching world.");
     const auto save=dataRoot_/"runtime-bootstrap"/"trainer.sav";
     std::wstring hostAddress,hostKey;unsigned hostPort=38475,hostCapacity=4;
     if(mode){hostKey=worldEditText(1);if(hostKey.size()<8||hostKey.size()>64)throw std::runtime_error("Use a room key of 8-64 characters.");size_t used=0;const auto portText=worldEditText(2);hostPort=std::stoul(portText,&used);if(used!=portText.size()||!hostPort||hostPort>65535)throw std::runtime_error("Use a port from 1 to 65535.");

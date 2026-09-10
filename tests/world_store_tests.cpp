@@ -12,6 +12,9 @@ int main(){try{
     const auto root=std::filesystem::temp_directory_path()/("pokemulti-world-test-"+worldRandomId());
     const auto hash=std::string(64,'a');auto a=createWorld(root,"First",hash),b=createWorld(root,"Second",hash);
     check(listWorlds(root,hash).size()==2&&a.id!=b.id,"Independent world selection");
+    auto leaf=createWorld(root,"Leaf only",std::string(64,'b'));
+    check(listWorlds(root,hash).size()==2&&listWorlds(root,std::string(64,'b')).size()==1&&listWorlds(root,std::string(64,'b')).front().id==leaf.id,"World picker must isolate cartridge hashes");
+    check(listWorlds(root,std::string(64,'c')).empty(),"Other revisions do not expose incompatible saves");
     const auto id=worldRandomId(),secret=worldRandomId();WorldPlayers players(a);
     check(players.authenticate(id,secret)&&players.authenticate(id,secret)&&!players.authenticate(id,worldRandomId()),"Private trainer credential");
     std::vector<uint8_t> flash(131072,255);flash[0]=42;auto first=captureCheckpoint(root/"runtime",flash);players.commit(id,first);
@@ -25,6 +28,11 @@ int main(){try{
     Session host(worldRandomId(),"Host",a.folder),guest(id,"Guest");
     host.configureWorld(a.folder,hash,worldRandomId());guest.configureWorld({},hash,secret);host.host(0,"world-test-key",3,false,8);auto port=host.status().port;
     guest.join("127.0.0.1",port,"world-test-key");until([&]{return guest.status().checkpointReady;});check(guest.downloadedSave()==first&&guest.status().worldId==a.id,"Host provides world-specific trainer before boot");
+    check(host.status().shinyRate==8192&&guest.status().shinyRate==8192,"Native shiny default");
+    host.setShinyRate(1);until([&]{return guest.status().shinyRate==1;});
+    bool denied=false;try{guest.setShinyRate(8);}catch(...){denied=true;}check(denied&&host.status().shinyRate==1,"Guests cannot change world shiny rate");
+    for(auto rate:{0u,8193u,0xffffffffu}){denied=false;try{host.setShinyRate(rate);}catch(...){denied=true;}check(denied&&host.status().shinyRate==1,"Invalid shiny rate rejected without mutation");}
+    host.setShinyRate(512);until([&]{return guest.status().shinyRate==512;});
     const auto serial=guest.storeCheckpoint(second);until([&]{return guest.status().checkpointAck==serial;});check(players.load(id)==second,"Receipt follows durable host commit");
     host.requestWorldSave();until([&]{return guest.status().checkpointRequest==1;});
     guest.stop();until([&]{return host.status().peers.size()==1;});
@@ -36,7 +44,10 @@ int main(){try{
     check(wrongKey.status().message.find("key")!=std::string::npos,"Wrong-key feedback preserved");
     Session imposter(id,"Guest");imposter.configureWorld({},hash,worldRandomId());imposter.join("127.0.0.1",port,"world-test-key");until([&]{return !imposter.status().running;});check(host.status().running,"Wrong credential refused without stopping host");
     guest.join("127.0.0.1",port,"world-test-key");until([&]{return guest.status().checkpointReady;});check(guest.downloadedSave()==second,"Reconnect downloads host checkpoint, ignoring local continuation");
+    check(guest.status().shinyRate==512,"Late/reconnecting guest receives host shiny rate");
     host.stop();until([&]{return !guest.status().running;});
+    host.host(0,"world-test-key");check(host.status().shinyRate==512,"Shiny rate persists in host world");host.stop();
+    Session other(worldRandomId(),"Other",b.folder);other.host(0,"other-world-key");check(other.status().shinyRate==8192,"Shiny rate does not leak to another world");other.stop();
     Session many(worldRandomId(),"Many");many.host(0,"capacity-test-key",3,false,32);port=many.status().port;
     std::vector<std::unique_ptr<Session>> clients;
     for(unsigned i=1;i<32;++i){auto c=std::make_unique<Session>(worldRandomId(),"Trainer "+std::to_string(i));c->join("127.0.0.1",port,"capacity-test-key");clients.push_back(std::move(c));}

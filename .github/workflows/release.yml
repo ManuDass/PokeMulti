@@ -7,6 +7,7 @@ permissions:
   contents: read
 jobs:
   windows:
+    if: ${{ !contains(github.ref_name, '-mac-preview') }}
     runs-on: windows-2025
     timeout-minutes: 40
     permissions:
