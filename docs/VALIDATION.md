@@ -180,3 +180,16 @@ The native Center exit reproduced a side seed at `(400,432)` while the trainer w
 All 54 test groups passed after the fix. Native two-client exit checks passed for LeafGreen (`world-native-2ab0295e7e79`) and FireRed (`world-native-01ef9ca81327`): constant door column, correct facing/spacing, no snap, and zero overlay changes during fades. Host and guest screenshots were inspected. Original assets and save logic were not edited. FRMP remains 23.
 
 The versioned 0.26.9 build also passed all 54 tests. Final native acceptance (world-native-798b48b529af) additionally confirmed continued normal trailing after leaving the doorway. The package audit excluded ROMs, real saves, native caches and test executables.
+
+
+Windows v0.26.9 passed release CI (34435799950) and published its installer,
+portable ZIP and checksums. The shipped 0.26.4 updater downloaded the public
+0.26.9 release, verified and applied every manifest entry, restarted with the
+same isolated profile, and preserved the nested synthetic world-save hash
+(`cache/door-0269-public-update.log`).
+
+Mac preview 0.27.4 passed both architecture builds and tests (34435596988,
+`b7c7f57`). Both app bundles passed architecture, original-art and private-data
+audits; packaged launcher previews were inspected before publishing the DMG
+and ZIP downloads. Physical Mac gameplay remains unverified. The tracked source
+audit found no ROMs, real saves or credentials among 3,373 files.
