@@ -34,6 +34,12 @@ winner/loser money results. FireRed US v1.0 passed the world-persistence regress
 
 ## ROM switching and shiny settings (0.26.4)
 
+GitHub Actions run `34420844227` passed the clean Windows build, all 54 test
+groups, audited packaging and installer publication. The updater shipped in
+0.26.3 downloaded the public 0.26.4 release, verified its archive and full
+manifest, installed it into an isolated copy, and restarted with the same data
+directory. Every installed file matched and disposable user data was preserved.
+
 The real Windows file chooser passed FireRed → LeafGreen → FireRed switching,
 cancellation, per-ROM world filtering and unchanged username/identity/friend data.
 Launcher captures verify the green LeafGreen top bar and controls. The game UI
@@ -63,7 +69,9 @@ since the last completed safe checkpoint.
 
 The separate macOS preview branch passed native Intel and Apple Silicon builds,
 CTest, ROM-free launcher and packaged-app smoke checks, and ad-hoc signature
-verification in GitHub Actions run `34416681074`. Both LeafGreen cartridge
+verification in GitHub Actions run `34421232551` for preview 0.27.1. Portable
+tests also cover profile-preserving ROM switches, shiny traits, world isolation
+and host/guest shiny settings. Both LeafGreen cartridge
 previews were visually reviewed, and the packaged artwork matches the supplied
 PNG byte-for-byte. These checks do not validate ROM gameplay on physical Macs
 or establish full Windows feature parity. Mac updates remain manual and
