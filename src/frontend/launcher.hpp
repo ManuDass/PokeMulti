@@ -18,7 +18,7 @@ public:
     ~Launcher();
     int run(int showCommand);
 private:
-    enum class Page { Welcome, Profile, Menu, Settings, NewWorld, HostWorld, JoinWorld, EditName, Updates };
+    enum class Page { Welcome, Profile, Menu, Settings, NewWorld, HostWorld, JoinWorld, EditName, Updates, UpdateRom };
     struct Button { HWND window{}; D2D1_RECT_F rect{}; std::wstring label; bool primary = false; };
     struct Validation { std::filesystem::path path; RomReport report; std::string error; };
     HINSTANCE instance_;
@@ -61,6 +61,8 @@ private:
     void button(int id, std::wstring label, D2D1_RECT_F rect, bool primary = false, bool enabled = true);
     void drawButton(const DRAWITEMSTRUCT& item);
     void command(int id);
+    uint32_t accent() const;
+    uint32_t pressedAccent() const;
     void selectRom();
     void selectArtwork();
     void bitmap(const Image& image,D2D1_RECT_F rect,bool nearest=true);

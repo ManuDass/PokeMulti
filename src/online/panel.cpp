@@ -40,6 +40,8 @@ std::string loadIdentity(const std::filesystem::path& folder){
 }
 struct Panel::Impl {
     Session& session;std::filesystem::path data;std::string name,gameLabel;
+    bool leaf=false;ImU32 accent=red,accentHover=IM_COL32(236,82,77,255),accentPressed=IM_COL32(195,48,47,255);
+    int shinyDraft=8192;uint32_t shownShinyRate=0;
     SDL_Texture* logo=nullptr;
     input::Pokeball ball;input::BallControls ballControls;input::BallMapping ballMapping;
     BallModel ballModel;SDL_Texture* ballTexture=nullptr;std::string ballModelError;
@@ -130,7 +132,9 @@ struct Panel::Impl {
             }
         }
         if(uiPhase){
-            if(uiOperation=="ball-connect"){
+            if(uiOperation=="shiny-check"){
+                game::requestFixture("shiny-check");uiPhase=-1;
+            }else if(uiOperation=="ball-connect"){
                 ballTest=true;tab=2;optionsTab=1;gameFocus=false;beginBallConnection(0);uiPhase=-1;
             }else if(uiOperation=="ball-blur"){
                 ballTestWindowFocused=false;SDL_Event e{};e.type=SDL_WINDOWEVENT;e.window.event=SDL_WINDOWEVENT_FOCUS_LOST;event(&e);uiPhase=-1;
@@ -165,6 +169,8 @@ struct Panel::Impl {
     }
 #endif
     Impl(Session& s,std::filesystem::path p,bool visible,bool host,std::string n,const std::string& code):session(s),data(std::move(p)),name(std::move(n)),gameLabel(code=="BPGE"?"LEAFGREEN / GAME BOY ADVANCE":"FIRERED / GAME BOY ADVANCE"),hostMode(!visible||host),autoHost(host){
+        leaf=code=="BPGE";
+        if(leaf){accent=IM_COL32(55,131,75,255);accentHover=IM_COL32(66,151,87,255);accentPressed=IM_COL32(40,102,55,255);}
         strcpy_s(address.data(),address.size(),"127.0.0.1");strcpy_s(port.data(),port.size(),"38475");
         strcpy_s(key.data(),key.size(),randomId().substr(0,12).c_str());
         if(session.status().connected){strcpy_s(key.data(),key.size(),session.connectionKey().c_str());strcpy_s(port.data(),port.size(),std::to_string(session.status().port).c_str());roomCapacity=session.status().capacity;}
@@ -213,10 +219,14 @@ struct Panel::Impl {
         ImGui::StyleColorsLight();auto& st=ImGui::GetStyle();st.WindowRounding=14;st.ChildRounding=10;st.FrameRounding=7;st.PopupRounding=10;st.ScrollbarRounding=6;st.GrabRounding=6;
         st.WindowPadding={14,14};st.FramePadding={10,6};st.ItemSpacing={8,7};st.WindowBorderSize=0;st.ChildBorderSize=0;st.FrameBorderSize=1;
         st.Colors[ImGuiCol_Text]=color(ink);st.Colors[ImGuiCol_TextDisabled]=color(muted);
-        st.Colors[ImGuiCol_WindowBg]=color(cream);st.Colors[ImGuiCol_ChildBg]=color(cream);
+        st.Colors[ImGuiCol_WindowBg]=color(leaf?IM_COL32(243,247,237,255):cream);st.Colors[ImGuiCol_ChildBg]=st.Colors[ImGuiCol_WindowBg];
         st.Colors[ImGuiCol_FrameBg]=color(IM_COL32(255,255,251,255));st.Colors[ImGuiCol_FrameBgHovered]=color(IM_COL32(242,230,220,255));st.Colors[ImGuiCol_FrameBgActive]=color(IM_COL32(242,230,220,255));
         st.Colors[ImGuiCol_Border]=color(IM_COL32(220,219,210,255));st.Colors[ImGuiCol_Button]=color(IM_COL32(227,226,217,255));st.Colors[ImGuiCol_ButtonHovered]=color(IM_COL32(218,217,207,255));st.Colors[ImGuiCol_ButtonActive]=color(IM_COL32(207,206,195,255));
-        st.Colors[ImGuiCol_CheckMark]=color(red);st.Colors[ImGuiCol_SliderGrab]=color(red);st.Colors[ImGuiCol_Header]=color(IM_COL32(239,217,204,255));st.Colors[ImGuiCol_HeaderHovered]=color(IM_COL32(239,225,214,255));st.Colors[ImGuiCol_HeaderActive]=color(IM_COL32(235,211,200,255));
+        st.Colors[ImGuiCol_CheckMark]=color(accent);st.Colors[ImGuiCol_SliderGrab]=color(accent);st.Colors[ImGuiCol_SliderGrabActive]=color(accentPressed);st.Colors[ImGuiCol_Header]=color(IM_COL32(239,217,204,255));st.Colors[ImGuiCol_HeaderHovered]=color(IM_COL32(239,225,214,255));st.Colors[ImGuiCol_HeaderActive]=color(IM_COL32(235,211,200,255));
+        if(leaf){
+            st.Colors[ImGuiCol_FrameBgHovered]=st.Colors[ImGuiCol_FrameBgActive]=color(IM_COL32(223,237,216,255));
+            st.Colors[ImGuiCol_Header]=color(IM_COL32(207,229,196,255));st.Colors[ImGuiCol_HeaderHovered]=color(IM_COL32(219,235,212,255));st.Colors[ImGuiCol_HeaderActive]=color(IM_COL32(192,216,180,255));
+        }
         ImGui_ImplSDL2_InitForSDLRenderer(window,renderer);ImGui_ImplSDLRenderer2_Init(renderer);
     }
     bool busy(){return operation.valid();}
@@ -229,7 +239,7 @@ struct Panel::Impl {
     }
     void saveFriends(){std::ostringstream text;for(const auto& f:friends)text<<std::quoted(f.id)<<' '<<std::quoted(f.name)<<'\n';atomicText(data/"friends.cfg",text.str());}
     bool primary(const char* text,ImVec2 size={-1,38}){
-        ImGui::PushStyleColor(ImGuiCol_Button,color(red));ImGui::PushStyleColor(ImGuiCol_ButtonHovered,color(IM_COL32(236,82,77,255)));ImGui::PushStyleColor(ImGuiCol_ButtonActive,color(IM_COL32(195,48,47,255)));ImGui::PushStyleColor(ImGuiCol_Text,color(cream));
+        ImGui::PushStyleColor(ImGuiCol_Button,color(accent));ImGui::PushStyleColor(ImGuiCol_ButtonHovered,color(accentHover));ImGui::PushStyleColor(ImGuiCol_ButtonActive,color(accentPressed));ImGui::PushStyleColor(ImGuiCol_Text,color(cream));
         bool clicked=ImGui::Button(text,size);ImGui::PopStyleColor(4);return clicked;
     }
     void heading(const char* text){ImGui::PushFont(mono);ImGui::TextDisabled("%s",text);ImGui::PopFont();}
@@ -397,13 +407,32 @@ struct Panel::Impl {
         }
         ImGui::PopStyleVar();
     }
+    void worldOptions(const Status& status){
+        heading("SESSION REWARDS");rewardSettings(status);ImGui::Spacing();
+        heading("SHINY RATE");
+        ImGui::Text("Current chance: 1 in %u",status.shinyRate);
+        if(shownShinyRate!=status.shinyRate){shownShinyRate=status.shinyRate;shinyDraft=int(status.shinyRate);}
+        const bool editable=status.hosting&&status.running;
+        paragraph(editable?"Changes apply to everyone; saved with this world.":"The host chooses this setting; saved with the world.");
+        ImGui::BeginDisabled(!editable);
+        ImGui::TextUnformatted("One shiny in...");ImGui::SetNextItemWidth(-1);
+        ImGui::InputInt("##shinyRate",&shinyDraft,0,0);
+        const bool valid=shinyDraft>=1&&shinyDraft<=8192;
+        ImGui::BeginDisabled(!valid||shinyDraft==int(status.shinyRate));
+        if(primary("Apply shiny rate",{-1,30}))guard([&]{session.setShinyRate(uint32_t(shinyDraft));});
+        ImGui::EndDisabled();
+        if(ImGui::Button("Restore game default",{-1,28}))guard([&]{session.setShinyRate(8192);shinyDraft=8192;});
+        ImGui::EndDisabled();
+        if(!valid)paragraph("Enter a number from 1 to 8192.");
+        paragraph("Default: 1 in 8,192. Lower means more shinies. Applies to new encounters and random gifts. Existing Pokemon stay unchanged.");
+    }
     void options(const Status& status){
-        const float half=(ImGui::GetContentRegionAvail().x-8)/2;
-        if(ImGui::Selectable("General",optionsTab==0,0,{half,23}))optionsTab=0;ImGui::SameLine();
-        if(ImGui::Selectable("Controller",optionsTab==1,0,{half,23}))optionsTab=1;
-        ImGui::Spacing();if(optionsTab==1){controllerPage();return;}
+        const float third=(ImGui::GetContentRegionAvail().x-16)/3;
+        if(ImGui::Selectable("General",optionsTab==0,0,{third,23}))optionsTab=0;ImGui::SameLine();
+        if(ImGui::Selectable("World",optionsTab==2,0,{third,23}))optionsTab=2;ImGui::SameLine();
+        if(ImGui::Selectable("Controller",optionsTab==1,0,{third,23}))optionsTab=1;
+        ImGui::Spacing();if(optionsTab==1){controllerPage();return;}if(optionsTab==2){worldOptions(status);return;}
 
-        heading("SESSION");rewardSettings(status);
         ImGui::Spacing();heading("AUDIO");ImGui::SetNextItemWidth(-1);
         ImGui::SliderInt("##gameVolume",&gameVolume,0,100,"Game volume: %d%%",ImGuiSliderFlags_AlwaysClamp);
         if(ImGui::IsItemDeactivatedAfterEdit())guard([&]{atomicText(data/"audio.cfg",std::to_string(gameVolume)+"\n");});
@@ -482,7 +511,7 @@ struct Panel::Impl {
         const float left=24,top=83,side=sidebar?(size.x<1060?300.f:328.f):0.f,gap=sidebar?20.f:0.f,right=size.x-24-side-gap,bottom=size.y-52;
         const float chatHeight=size.y<720?96.f:144.f,gameBottom=bottom-chatHeight-12;
         d->AddRectFilled({left,top},{right,gameBottom},IM_COL32(18,24,32,255),15);
-        d->AddRect({left,top},{right,gameBottom},IM_COL32(63,69,77,255),15,0,1);
+        d->AddRect({left,top},{right,gameBottom},leaf?accent:IM_COL32(63,69,77,255),15,0,1);
         label(mono,12,{left+19,top+16},IM_COL32(146,157,164,255),gameLabel);
         std::string money=game::walletAvailable()?std::to_string(game::walletBalance()):"--";
         if(money.size()>3)money.insert(money.size()-3,",");
@@ -524,7 +553,7 @@ struct Panel::Impl {
         ImGui::End();ImGui::PopStyleVar(2);ImGui::PopStyleColor();ImGui::Render();ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(),renderer);
 #ifdef FR_TEST_HARNESS
         if(++uiFrames%10==0){int w=0,h=0;SDL_GetWindowSize(window,&w,&h);std::ostringstream report;
-            report<<"frames="<<uiFrames<<" command="<<uiCommand<<" phase="<<uiPhase<<" connected="<<status.connected<<" hosting="<<status.hosting<<" peers="<<status.peers.size()<<" invitation="<<status.invitation.from<<" cable="<<session.cableConnected()<<" tab="<<tab<<" sidebar="<<sidebar<<" keyboard="<<(!gameFocus||ImGui::GetIO().WantTextInput)<<" size="<<w<<","<<h<<" port="<<port.data()<<" key="<<key.data()<<" chat="<<status.chat.size()<<" chat_focus="<<ImGui::GetIO().WantTextInput<<" options_tab="<<optionsTab<<" ball_model="<<ballModel.triangles()<<" ball_phase="<<int(ballState().phase)<<" ball_resume_x="<<int(ballResumeX)<<" ball_resume_y="<<int(ballResumeY)<<" ball_resume="<<resumeAfterBallConnect<<" ball_armed="<<ballControls.armed()<<" ball_keys="<<ballLastKeys<<" scroll="<<sidebarScroll<<" public_lookup="<<int(publicAddress.state())<<" public_valid="<<validConnectionIPv4(publicAddress.address(),true)<<" volume="<<gameVolume<<" money="<<game::walletBalance()<<" held="<<game::walletHeld()<<" viewport="<<viewportX<<","<<viewportY<<","<<viewportW<<","<<viewportH<<" chrome_clear="<<(viewportY-5>=top+43&&viewportY+viewportH+5<=gameBottom-30)<<" error="<<error<<"\n";
+            report<<"frames="<<uiFrames<<" command="<<uiCommand<<" phase="<<uiPhase<<" connected="<<status.connected<<" hosting="<<status.hosting<<" peers="<<status.peers.size()<<" invitation="<<status.invitation.from<<" cable="<<session.cableConnected()<<" tab="<<tab<<" sidebar="<<sidebar<<" keyboard="<<(!gameFocus||ImGui::GetIO().WantTextInput)<<" size="<<w<<","<<h<<" port="<<port.data()<<" key="<<key.data()<<" chat="<<status.chat.size()<<" chat_focus="<<ImGui::GetIO().WantTextInput<<" options_tab="<<optionsTab<<" ball_model="<<ballModel.triangles()<<" ball_phase="<<int(ballState().phase)<<" ball_resume_x="<<int(ballResumeX)<<" ball_resume_y="<<int(ballResumeY)<<" ball_resume="<<resumeAfterBallConnect<<" ball_armed="<<ballControls.armed()<<" ball_keys="<<ballLastKeys<<" scroll="<<sidebarScroll<<" public_lookup="<<int(publicAddress.state())<<" public_valid="<<validConnectionIPv4(publicAddress.address(),true)<<" shiny_rate="<<status.shinyRate<<" leaf_theme="<<leaf<<" volume="<<gameVolume<<" money="<<game::walletBalance()<<" held="<<game::walletHeld()<<" viewport="<<viewportX<<","<<viewportY<<","<<viewportW<<","<<viewportH<<" chrome_clear="<<(viewportY-5>=top+43&&viewportY+viewportH+5<=gameBottom-30)<<" error="<<error<<"\n";
             try{atomicText(data/"test-ui-status.txt",report.str());
                 std::ostringstream transcript;for(const auto& m:status.chat)transcript<<m.sequence<<' '<<unsigned(m.slot)<<' '<<std::quoted(m.id)<<' '<<std::quoted(m.name)<<' '<<std::quoted(m.text)<<'\n';atomicText(data/"test-chat.txt",transcript.str());}catch(const std::exception&){}}
 #endif

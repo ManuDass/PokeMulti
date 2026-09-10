@@ -1,4 +1,4 @@
-POKEMULTI 0.26.3 - WINDOWS 10/11, 64-BIT
+POKEMULTI 0.26.4 - WINDOWS 10/11, 64-BIT
 
 1. Run PokeMulti-Setup.exe from the GitHub release and choose an install folder.
    Portable alternative: extract the entire versioned ZIP into a folder.

@@ -21,3 +21,8 @@ For LeafGreen, create a disposable field savestate by starting a new game with
 that exact ROM. Pass `--state PATH` to the world, field-battle, camp and story-retry
 checks. Their legacy default fixture is FireRed US v1.0; it must not be used with
 a different cartridge. The launcher smoke check requires only a ROM.
+
+Add `--shiny` to `world_native_smoke.py` to test live host rate changes, read-only
+guest controls, native shiny generation, fixed-personality preservation, the
+game default, and Options composition at 940×650. Use `--configuration` to select
+the built release harness and `--state` for a matching non-FireRed-v1.0 fixture.

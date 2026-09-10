@@ -2,7 +2,7 @@
 from pathlib import Path
 from native_fixture import local_field_state
 import argparse,hashlib,json,os,re,socket,subprocess,time,uuid,zipfile
-ap=argparse.ArgumentParser();ap.add_argument('--rom',required=True);ap.add_argument('--configuration',default='Release-0.25.0');ap.add_argument('--state',type=Path,help='Local field savestate made with this exact ROM');args=ap.parse_args()
+ap=argparse.ArgumentParser();ap.add_argument('--rom',required=True);ap.add_argument('--configuration',default='Release-0.25.0');ap.add_argument('--state',type=Path,help='Local field savestate made with this exact ROM');ap.add_argument('--shiny',action='store_true',help='Exercise live host shiny settings through World options');args=ap.parse_args()
 root=Path(__file__).resolve().parents[2];base=root/'cache'/('world-native-'+uuid.uuid4().hex[:12]);base.mkdir();rom=Path(args.rom).resolve()
 data=zipfile.ZipFile(rom).read(next(n for n in zipfile.ZipFile(rom).namelist() if n.lower().endswith('.gba'))) if rom.suffix.lower()=='.zip' else rom.read_bytes()
 worldid=uuid.uuid4().hex;world=base/'worlds'/worldid;world.mkdir(parents=True);(world/'world.cfg').write_text(f'PMWORLD1 "{worldid}" "Test world" "{hashlib.sha256(data).hexdigest()}"\n')
@@ -63,6 +63,34 @@ def identity(r):
 try:
  start('a');start('b');wait(lambda:all(value(r,'ack','world-save-check.txt')>0 for r in processes),'Automatic host checkpoints')
  capture('joined')
+ if args.shiny:
+  # Exercise the real World options UI on both clients before normal multiplayer acceptance.
+  for r in processes:
+   ui(r,'click 1070 132');ui(r,'click 950 172')
+  capture('shiny-options-default')
+  coordinates={'input':'950 389','apply':'950 425','reset':'950 461'}
+  def set_rate(rate):
+   ui('a','click '+coordinates['input']);ui('a','ctrl-a');ui('a','text "'+str(rate)+'"');ui('a','click '+coordinates['apply'])
+   wait(lambda:all(value(r,'shiny_rate','test-ui-status.txt',True)==rate for r in processes),'Host shiny setting did not synchronize')
+  set_rate(1)
+  for r in processes:
+   ui(r,'shiny-check');wait(lambda:(runtime[r]/'shiny-check.txt').exists(),'Native shiny generation check missing')
+   check=read(r,'shiny-check.txt');assert 'rate=1 random=32 nature=32 valid=1' in check,check
+  capture('shiny-options-applied')
+  # Guest UI is read-only, including its reset button.
+  ui('b','click '+coordinates['reset']);time.sleep(.15)
+  assert value('a','shiny_rate','test-ui-status.txt',True)==1
+  set_rate(8192)
+  for r in processes:
+   (runtime[r]/'shiny-check.txt').unlink();ui(r,'shiny-check')
+   wait(lambda:(runtime[r]/'shiny-check.txt').exists(),'Default native check missing')
+   check=read(r,'shiny-check.txt');assert 'rate=8192' in check and 'valid=1' in check,check
+   assert value(r,'random','shiny-check.txt')<10 and value(r,'nature','shiny-check.txt')<10,check
+   ui(r,'resize 940 650')
+  capture('shiny-options-small')
+  assert all(value(r,'scroll','test-ui-status.txt',True)==0 for r in processes),'World options should fit at minimum window size'
+  for r in processes:ui(r,'resize 1140 760');ui(r,'click 850 132')
+  print('PASS: live host shiny setting, guest restriction, native new-mon generation, fixed PID preservation and minimum-size composition',flush=True)
  assert value('a','peers','test-ui-status.txt',True)==2
  # T goes through the actual SDL shortcut with the trainer facing their neighbor.
  ui('a','escape');ui('a','trade');wait(lambda:value('b','ui','field-battle-check.txt')==4,'T did not send trade invitation')

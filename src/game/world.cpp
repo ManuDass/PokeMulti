@@ -1,5 +1,7 @@
 #include "game/world.hpp"
 #include "game/rom_layout.hpp"
+#include "game/shiny.hpp"
+#include <random>
 #include "frontend/world_store.hpp"
 #include "game/dialogue.hpp"
 #include "game/wager_result.hpp"
@@ -342,6 +344,7 @@ void beginBattlePresence(uint16_t enemy=0,uint32_t wildId=0,const PlayerState* e
 bool campBlocked(int x,int y);
 bool releasedOccupied(int x,int y);
 #include "world_online.inc"
+#include "world_shiny.inc"
 #include "world_dialogue.inc"
 #include "world_story_gates.inc"
 void publishDeparture();
@@ -383,6 +386,22 @@ void driveTestInput(){
 int fixtureHook(uint32_t,int,ArmCpuState*){
     if(fixtureRequest.empty()||guestCall)return 0;
     const auto fixture=fixtureRequest;fixtureRequest.clear();
+    if(fixture=="shiny-check"){
+        const auto mon=0x0202402cu;unsigned randomShiny=0,natureShiny=0;bool valid=true;
+        const auto rate=room?room->status().shinyRate:DefaultShinyRate;
+        for(unsigned i=0;i<32;++i){
+            callGuest(addresses.createWild,16,10,0);
+            randomShiny+=isShiny(r32(mon),r32(mon+4));
+            valid=valid&&callGuest(gameAddress(0x0803fbe8),mon,11)==16&&callGuest(gameAddress(0x0803fbe8),mon,4)==0;
+            callGuestWords(gameAddress(0x0803dd98),{mon,16,10,32,i%25});
+            natureShiny+=isShiny(r32(mon),r32(mon+4));valid=valid&&r32(mon)%25==i%25&&callGuest(gameAddress(0x0803fbe8),mon,11)==16;
+        }
+        constexpr uint32_t preserved=0x12345678;
+        callGuestWords(gameAddress(0x0803da54),{mon,16,10,32,1,preserved,0,0});
+        valid=valid&&r32(mon)==preserved&&callGuest(gameAddress(0x0803fbe8),mon,4)==0;
+        std::ofstream report(diagnosticPath.parent_path()/"shiny-check.txt");report<<"rate="<<rate<<" random="<<randomShiny<<" nature="<<natureShiny<<" valid="<<valid<<"\n";
+        return 0;
+    }
     const auto save2=r32(0x0300500c);
     if(validRam(save2,16)){
         const std::string name=(fixture=="cable-b"||fixture=="wager-b"||fixture=="field-b"||fixture=="field-center-b")?"TEST B":"TEST A";
@@ -659,6 +678,7 @@ void initialize(FireRedRevision revision,const std::filesystem::path& diagnostic
     addresses={gameAddress(0x080565b4),gameAddress(0x083d37a0),gameAddress(0x083d3e80),gameAddress(0x083d3740),gameAddress(0x083c9cb8),
                gameAddress(0x0839fdb0),gameAddress(0x083a5158),gameAddress(0x080833b0),gameAddress(0x080a029c),gameAddress(0x0807f704),gameAddress(0x0808310c)};
     registerFieldHooks();
+    registerShinyHooks();
     registerStoryRetryHooks();
     registerWorldSessionHooks();
     diagnosticPath=diagnostics;lastRemoteField={};battleVisualId={};localBattle={};battleMotion={};battleEntered=battleMonDataReady=false;battleIdentity=uint32_t(uint64_t(clockMs()));
@@ -913,7 +933,7 @@ uint16_t testMovementInput(uint16_t original){if(chaseRequested||walkRequested){
 void chaseWild(){chaseRequested=true;}
 void walkTo(int x,int y){walkX=x;walkY=y;walkRequested=true;}
 void requestFixture(const std::string& name){
-    if(name!="field-a"&&name!="field-b"&&name!="field-center-a"&&name!="field-center-b"&&!name.starts_with("campaign-")&&name!="battle-char"&&name!="released-a"&&name!="released-b"&&name!="spectate"&&name!="camp-route1"&&name!="camp-route1-b"&&name!="camp-a"&&name!="camp-b"&&name!="wild"&&name!="wild-repel"&&name!="cable-a"&&name!="cable-b"&&name!="story-rival"&&name!="unique-eevee"&&name!="wager-a"&&name!="wager-b")throw std::runtime_error("Unknown test fixture");
+    if(name!="shiny-check"&&name!="field-a"&&name!="field-b"&&name!="field-center-a"&&name!="field-center-b"&&!name.starts_with("campaign-")&&name!="battle-char"&&name!="released-a"&&name!="released-b"&&name!="spectate"&&name!="camp-route1"&&name!="camp-route1-b"&&name!="camp-a"&&name!="camp-b"&&name!="wild"&&name!="wild-repel"&&name!="cable-a"&&name!="cable-b"&&name!="story-rival"&&name!="unique-eevee"&&name!="wager-a"&&name!="wager-b")throw std::runtime_error("Unknown test fixture");
     fixtureRequest=name;
 }
 #endif

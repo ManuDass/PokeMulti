@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 namespace fr::online {
-inline constexpr uint8_t RoomProtocolVersion=19;
+inline constexpr uint8_t RoomProtocolVersion=20;
 enum class Activity:uint8_t { Battle=1, Trade=2 };
 struct Peer {
     uint8_t slot=0;
@@ -42,6 +42,7 @@ struct Status {
     std::string worldId,worldName;
     std::vector<Departure> departures;
     uint8_t rewardPolicy=game::DefaultRewardSharing;
+    uint32_t shinyRate=8192; // 1 in N; host-owned, persisted per world
     int slot=-1;
     std::string message;uint32_t messageSequence=0;
     std::vector<Peer> peers;
@@ -69,6 +70,7 @@ public:
     void depart(game::PlayerState origin);
 
     Status status() const;
+    void setShinyRate(uint32_t denominator);
     void update(game::PlayerState player);
     void sendChat(const std::string& text);
     void updateWorld(WorldReport report);

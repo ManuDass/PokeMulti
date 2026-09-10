@@ -32,7 +32,24 @@ and host-loss return. The full LeafGreen wager battle passed opponent-name and
 dialogue checks, restored both teams and positions, and displayed the committed
 winner/loser money results. FireRed US v1.0 passed the world-persistence regression.
 
-The hook audit verifies 188 ROM addresses and 61 RAM references against four
+## ROM switching and shiny settings (0.26.4)
+
+The real Windows file chooser passed FireRed → LeafGreen → FireRed switching,
+cancellation, per-ROM world filtering and unchanged username/identity/friend data.
+Launcher captures verify the green LeafGreen top bar and controls. The game UI
+was reviewed in both themes, including World options at the minimum 940×650 size
+with no options scrollbar or overlap with the game frame.
+
+Two native clients using each supplied ROM (FireRed US 1.0 and LeafGreen US 1.1)
+passed live host shiny changes and disabled guest editing. At 1 in 1, each client
+generated 32 shiny random wild Pokémon and 32 shiny nature-selected Pokémon
+through the native creator, with valid data and preserved fixed-personality
+records. Restoring 1 in 8,192 restored native generation. Unit tests additionally
+cover rate bounds, per-world persistence, reconnecting clients, trait constraints
+and every Unown form. The ROM audit now checks unmapped direct calls, and map
+ordering is enforced at compile time.
+
+The hook audit verifies 194 ROM addresses and 61 RAM references against four
 published symbol layouts. Forged LeafGreen headers still fail full-image hash
 validation. Real packaged clients verified matching LeafGreen joins and visible
 FireRed/LeafGreen mismatch rejection before checkpoint transfer. The supplied

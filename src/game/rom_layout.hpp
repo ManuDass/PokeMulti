@@ -8,7 +8,7 @@ namespace fr::game {
 // Provenance, RAM/layout validation and regeneration: docs/ROM_SUPPORT.md.
 struct RomSymbol { uint32_t canonical; std::array<uint32_t,4> address; };
 inline constexpr RomSymbol romSymbols[]{
-    {0x08000544, {0x08000544,0x08000558,0x08000544,0x08000558}}, // SetMainCallback2
+{0x08000544, {0x08000544,0x08000558,0x08000544,0x08000558}}, // SetMainCallback2
     {0x08000718, {0x08000718,0x0800072c,0x08000718,0x0800072c}}, // SetSerialCallback
     {0x08000874, {0x08000874,0x08000888,0x08000874,0x08000888}}, // RestoreSerialTimer3IntrHandlers
     {0x08002bb0, {0x08002bb0,0x08002bc4,0x08002bb0,0x08002bc4}}, // AllocZeroed
@@ -32,12 +32,16 @@ inline constexpr RomSymbol romSymbols[]{
     {0x08010508, {0x08010508,0x0801051c,0x08010508,0x0801051c}}, // CB2_HandleStartBattle
     {0x08011100, {0x08011100,0x08011114,0x08011100,0x08011114}}, // BattleMainCB2
     {0x08011174, {0x08011174,0x08011188,0x08011174,0x08011188}}, // FreeRestoreBattleData
+    {0x0803da54, {0x0803da54,0x0803da68,0x0803da54,0x0803da68}}, // CreateMon
+    {0x0803dac4, {0x0803dac4,0x0803dad8,0x0803dac4,0x0803dad8}}, // CreateBoxMon
+    {0x0803dd98, {0x0803dd98,0x0803ddac,0x0803dd98,0x0803ddac}}, // CreateMonWithNature
     {0x0803e774, {0x0803e774,0x0803e788,0x0803e774,0x0803e788}}, // BoxMonToMon
     {0x0803e830, {0x0803e830,0x0803e844,0x0803e830,0x0803e844}}, // GetLevelFromBoxMonExp
     {0x0803e964, {0x0803e964,0x0803e978,0x0803e964,0x0803e978}}, // SetMonMoveSlot
     {0x0803f940, {0x0803f940,0x0803f954,0x0803f940,0x0803f954}}, // GetSubstruct
     {0x0803fbe8, {0x0803fbe8,0x0803fbfc,0x0803fbe8,0x0803fbfc}}, // GetMonData
     {0x0804037c, {0x0804037c,0x08040390,0x0804037c,0x08040390}}, // SetMonData
+    {0x080404d0, {0x080404d0,0x080404e4,0x080404d0,0x080404e4}}, // SetBoxMonData
     {0x08040b14, {0x08040b14,0x08040b28,0x08040b14,0x08040b28}}, // GiveMonToPlayer
     {0x0804c1f0, {0x0804c1f0,0x0804c204,0x0804c1f0,0x0804c204}}, // SavePlayerParty
     {0x0804c230, {0x0804c230,0x0804c244,0x0804c230,0x0804c244}}, // LoadPlayerParty
@@ -68,6 +72,7 @@ inline constexpr RomSymbol romSymbols[]{
     {0x0806994c, {0x0806994c,0x08069960,0x0806994c,0x08069960}}, // UnlockPlayerFieldControls
     {0x08069ae4, {0x08069ae4,0x08069af8,0x08069ae4,0x08069af8}}, // ScriptContext_SetupScript
     {0x08069b34, {0x08069b34,0x08069b48,0x08069b34,0x08069b48}}, // ScriptContext_Enable
+    {0x08069b48, {0x08069b48,0x08069b5c,0x08069b48,0x08069b5c}}, // RunScriptImmediately
     {0x08069b80, {0x08069b80,0x08069b94,0x08069b80,0x08069b94}}, // MapHeaderGetScriptTable
     {0x08069bd8, {0x08069bd8,0x08069bec,0x08069bd8,0x08069bec}}, // MapHeaderCheckScriptTable
     {0x08069c38, {0x08069c38,0x08069c4c,0x08069c38,0x08069c4c}}, // RunOnLoadMapScript
@@ -105,6 +110,7 @@ inline constexpr RomSymbol romSymbols[]{
     {0x08081668, {0x08081668,0x0808167c,0x0808163c,0x08081650}}, // CB2_ReturnFromCableClubBattle
     {0x08081b84, {0x08081b84,0x08081b98,0x08081b58,0x08081b6c}}, // CheckTrainer
     {0x08081bec, {0x08081bec,0x08081c00,0x08081bc0,0x08081bd4}}, // GetTrainerApproachDistance
+    {0x080829fc, {0x080829fc,0x08082a10,0x080829d0,0x080829e4}}, // GenerateWildMon
     {0x0808310c, {0x0808310c,0x08083120,0x080830e0,0x080830f4}}, // IsWildLevelAllowedByRepel
     {0x080833b0, {0x080833b0,0x080833c4,0x08083384,0x08083398}}, // TryStandardWildEncounter
     {0x080842e8, {0x080842e8,0x080842fc,0x080842bc,0x080842d0}}, // FieldCallback_UseFly
@@ -197,6 +203,10 @@ inline constexpr RomSymbol romSymbols[]{
     {0x084162a2, {0x084162a2,0x08416312,0x084160de,0x0841614e}}, // gText_MenuRetire
     {0x0841a111, {0x0841a111,0x0841a181,0x08419f4d,0x08419fbd}}, // gStartMenuDesc_Retire
 };
+static_assert([]{
+    for(size_t i=1;i<std::size(romSymbols);++i)if(romSymbols[i-1].canonical>=romSymbols[i].canonical)return false;
+    return true;
+}(),"ROM address map must be strictly sorted for lookup");
 inline size_t romLayoutIndex(FireRedRevision revision){
     switch(revision){
     case FireRedRevision::FireRed_US_10:return 0;

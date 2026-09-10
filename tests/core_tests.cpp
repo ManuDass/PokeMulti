@@ -1,6 +1,8 @@
 #include "rom/rom.hpp"
 #include "game/rom_layout.hpp"
 #include "game/unique.hpp"
+#include "game/shiny.hpp"
+#include <random>
 #include "runtime/probe.hpp"
 #include "frontend/profile.hpp"
 #include "platform/text.hpp"
@@ -91,6 +93,34 @@ int main() {
     test("Oversized and short input rejected",[] {
         std::vector<uint8_t> shortRom(256); expect(!inspectRom(shortRom).supported(),"Short input accepted");
         std::vector<uint8_t> large(32*1024*1024+1); rejects([&] { inspectRom(large); });
+    });
+    test("Custom shiny traits preserve native nature gender ability and form",[] {
+        std::mt19937 random(8427);unsigned forms=0;
+        for(unsigned i=0;i<4096;++i){
+            const uint32_t p=random(),ot=random();
+            for(bool unown:{false,true}){
+                const auto shiny=fr::game::shinyPersonality(p,ot,true,unown,random());
+                expect(fr::game::isShiny(shiny,ot)&&(unown||shiny%25==p%25)&&(shiny&1)==(p&1),"Shiny traits changed");
+                if(unown){expect(fr::game::unownForm(shiny)==fr::game::unownForm(p),"Unown form changed");forms|=1u<<fr::game::unownForm(p);}
+                else expect((shiny&255)==(p&255),"Gender changed");
+                const auto normal=fr::game::shinyPersonality(shiny,ot,false,unown,random());
+                expect(!fr::game::isShiny(normal,ot)&&normal%25==shiny%25&&(normal&1)==(p&1),"Non-shiny traits changed");
+                if(unown)expect(fr::game::unownForm(normal)==fr::game::unownForm(p),"Non-shiny Unown form changed");
+                else expect((normal&255)==(p&255),"Non-shiny gender changed");
+            }
+        }
+        expect(forms==0x0fffffff,"Missing Unown form coverage");
+    });
+    test("ROM update preserves username identity friends and existing worlds",[] {
+        Scratch s;Profile original{s.root/L"FireRed.zip",std::string(64,'a'),"Same Trainer"};
+        saveProfile(s.root/"profile.cfg",original);
+        for(const auto* name:{"identity.cfg","identity.key","checkpoint.pmsv","friends.cfg"}){std::ofstream f(s.root/name,std::ios::binary);f<<"unchanged-personal-data";}
+        auto leaf=updateProfileRom(s.root/"profile.cfg",s.root/L"LeafGreen.zip",std::string(64,'b'));
+        expect(leaf.playerName==original.playerName&&leaf.romSha256==std::string(64,'b')&&leaf.romPath.filename()==L"LeafGreen.zip","ROM update changed username or failed selection");
+        for(const auto* name:{"identity.cfg","identity.key","checkpoint.pmsv","friends.cfg"}){std::ifstream f(s.root/name,std::ios::binary);std::string value((std::istreambuf_iterator<char>(f)),{});expect(value=="unchanged-personal-data","ROM update changed personal data");}
+        rejects([&]{updateProfileRom(s.root/"profile.cfg",s.root/L"broken.zip","bad");});
+        expect(loadProfile(s.root/"profile.cfg")==leaf,"Rejected ROM update damaged profile");
+        expect(updateProfileRom(s.root/"profile.cfg",original.romPath,original.romSha256)==original,"Switching back changed username");
     });
     test("Unicode and quoted profile round trip with replacement",[] {
         Scratch s;
