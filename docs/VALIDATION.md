@@ -123,3 +123,13 @@ Question uses top-row cells 1-4. Exclamation uses top-row cell 5 followed by
 bottom-row cells 1-5. Each plays once before holding its final expression, then
 clears. Nearby X interactions cycle through heart, happy, music, curious and
 surprised reactions. Network validation accepts and transports all five kinds.
+
+Emote2 pairs have a 16-tick animation duration: A, B, A, B at four ticks
+per cell. Tests verify every pair clears before a third loop. All twelve reaction
+kinds are carried in FRMP 22; the supplied source images are unchanged.
+
+Emote3 uses top 1+2, top 3+4, top 5+bottom 5, bottom 1+2, and bottom 3+4.
+All five pairs play A, B, A, B and clear before a third loop. Tests cover every
+cell transition and the cross-row pair. Music uses Emote2 top 1+bottom 1 as
+confirmed by the asset owner. Each X interaction selects one of the twelve
+original expressions, with matching native dialogue and a Pokemon cry.

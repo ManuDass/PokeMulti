@@ -5,6 +5,9 @@ installations can use **Update program → Check for updates → Download & rest
   the three populated bottom-row cells. Each frame replaces the previous cell.
 - Follower interactions also include the two distinct question and exclamation
   animations from Emote1, playing across the row boundary in source order.
+- Each of Emote2's five paired reactions plays exactly two loops (A, B, A, B),
+  then clears. Emote3's five pairs also play exactly twice, including its top-5/bottom-5
+  sequence. All twelve follower reactions synchronize across the room.
 - Shiny Pokemon now use their supplied shiny sprites in grass, as followers,
   around camp and when released. Visible encounters retain their shiny identity.
 - Followers appear without taking a first step and remain consistent across

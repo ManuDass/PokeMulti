@@ -1,7 +1,7 @@
 // Follower placement, presentation and interaction. Never alter supplied PNGs.
 PlayerState lastFollowerField;
 std::array<FollowerVisual,MaxRoomPlayers> followerVisuals;
-std::array<Image,3> followerEffects;
+std::array<Image,4> followerEffects;
 std::vector<std::array<int,4>> followerEmoteBounds;
 uint64_t petUntil=0;uint16_t petSequence=0;uint8_t petKind=0;
 bool followerTile(int x,int y){
@@ -54,16 +54,16 @@ uint32_t interactWithFollower(){
     if(std::abs(local.followerX-(local.pixelX+dx[face]*16))>4||std::abs(local.followerY-(local.pixelY+dy[face]*16))>4)return 0;
     // A native NPC sharing that tile retains its original interaction.
     for(unsigned i=0;i<16;++i){const auto o=0x02036e38+36*i;if((r32(o)&1)&&!(r32(o)&0x2000)&&s16(o+16)-7==local.followerX/16&&s16(o+18)-7==local.followerY/16)return 0;}
-    const unsigned kind=petSequence%5+1;
-    constexpr const char* text[]{"Your Pokemon looks happy to be with you!","Your Pokemon enjoys a gentle pat!","Your Pokemon hums happily!","Your Pokemon tilts its head curiously!","Your Pokemon perks up at your voice!"};
+    const unsigned kind=petSequence%FollowerReactionCount+1;
+    constexpr const char* text[]{"Your Pokemon looks happy to be with you!","Your Pokemon enjoys a gentle pat!","Your Pokemon hums happily!","Your Pokemon tilts its head curiously!","Your Pokemon perks up at your voice!","Your Pokemon seems to be wondering something!","Your Pokemon gives you a cheerful smile!","Your Pokemon bounces happily!","Your Pokemon stamps its feet!","Your Pokemon watches quietly.","Your Pokemon lets out a little sigh.","Your Pokemon opens its mouth playfully!"};
     const auto script=makeFieldNoticeScript(text[kind-1]);if(!script)return 0;
-    ++petSequence;petKind=uint8_t(kind);petUntil=now+72;
+    ++petSequence;petKind=uint8_t(kind);petUntil=now+3*followerEmoteFrames(kind);
     callGuest(gameAddress(0x08071df0),local.follower,0);return script;
 }
 void drawFollowerEffect(unsigned sheet,int pattern,int x,int y){
     if(pattern<0||sheet>=followerEffects.size())return;
     auto& art=followerEffects[sheet];if(art.empty()){
-        const auto file=localAsset(std::string("LocalAssets/Follower effects/")+std::array<const char*,3>{"Follower_ComeInOut.png","Follower_Emote2.png","Follower_Emote1.png"}[sheet]);
+        const auto file=localAsset(std::string("LocalAssets/Follower effects/")+std::array<const char*,4>{"Follower_ComeInOut.png","Follower_Emote2.png","Follower_Emote1.png","Follower_Emote3.png"}[sheet]);
         if(file.empty())return;art=readImage(file);
     }
     constexpr int cell=192;const int columns=art.width/cell;if(!columns||art.height<cell||pattern>=columns*(art.height/cell))return;
@@ -90,7 +90,7 @@ void drawCompanion(uint8_t* rgb,unsigned w,unsigned h,const PlayerState& p,unsig
             for(int yy=0;yy<sheet->cellH&&first==sheet->cellH;++yy)for(int xx=0;xx<sheet->cellW;++xx)if(sheet->image.pixels[(row*sheet->cellH+yy)*sheet->image.width+frame*sheet->cellW+xx]>>24){first=yy;break;}
             top=y+15-sheet->feet[row*4+frame]+first;
         }
-        if(f<24)followerEmoteBounds.push_back({x-8,top-25,24,25});
+        if(f<followerEmoteFrames(p.followerEmote))followerEmoteBounds.push_back({x-8,top-25,24,25});
         drawFollowerEffect(followerEmoteSheet(p.followerEmote),followerEmotePattern(p.followerEmote,f),x+3,top-3+(f<3?(-9+int(f)*3)/2:0));
     }
 #ifdef FR_TEST_HARNESS

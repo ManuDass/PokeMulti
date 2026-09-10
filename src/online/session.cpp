@@ -60,7 +60,7 @@ game::PlayerState player(Reader& r){
     p.x=int16_t(r.u16());p.y=int16_t(r.u16());p.follower=uint16_t(r.u16());
     p.pixelX=int16_t(r.u16());p.pixelY=int16_t(r.u16());p.followerX=int16_t(r.u16());p.followerY=int16_t(r.u16());
     p.offsetX=int8_t(r.u8());p.offsetY=int8_t(r.u8());p.spriteFrame=uint8_t(r.u8());p.flip=uint8_t(r.u8());const auto visible=r.u8();p.followerVisible=visible==1;p.followerFacing=uint8_t(r.u8());p.followerFrame=uint8_t(r.u8());
-    p.sequence=r.u32();p.sampleTime=r.u32();p.partyCount=uint8_t(r.u8());p.partyEggs=uint8_t(r.u8());p.followerShiny=r.boolean();p.followerToken=r.u32();p.followerEmoteSequence=uint16_t(r.u16());p.followerEmote=uint8_t(r.u8());if(p.followerEmote>5)throw std::runtime_error("Invalid follower emote");
+    p.sequence=r.u32();p.sampleTime=r.u32();p.partyCount=uint8_t(r.u8());p.partyEggs=uint8_t(r.u8());p.followerShiny=r.boolean();p.followerToken=r.u32();p.followerEmoteSequence=uint16_t(r.u16());p.followerEmote=uint8_t(r.u8());if(p.followerEmote>game::FollowerReactionCount)throw std::runtime_error("Invalid follower emote");
     if(p.pixelX< -32||p.pixelY< -32||p.pixelX>8224||p.pixelY>8224||p.followerX< -32||p.followerY< -32||p.followerX>8224||p.followerY>8224||std::abs(int(p.offsetX))>64||std::abs(int(p.offsetY))>64||p.spriteFrame>=64||p.flip>3||visible>1||p.followerFacing<1||p.followerFacing>4||p.followerFrame>3)
         throw std::runtime_error("Invalid sprite pose");
     if(p.partyCount>6 || (p.partyEggs>>p.partyCount)!=0 || active>1 || p.elevation>15 || p.facing<1 || p.facing>4 || p.graphics>=152 || p.x<0 || p.y<0 || p.x>511 || p.y>511 || p.follower>411)
