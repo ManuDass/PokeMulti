@@ -118,7 +118,12 @@ int main(){try{
     if(eh)host.releaseEncounter(eh);else guest.releaseEncounter(eg);
     until([&]{return host.status().world.leases.empty()&&guest.status().world.leases.empty();});
     host.updateStory(baseline(),true);until([&]{return guest.status().world.storyReady;});
-    host.updateWorld(report(3));guest.updateWorld(report(3));until([&]{return !guest.status().world.maps[0].npcs.empty()&&!host.status().world.maps[0].npcs.empty();});
+    // A host NPC snapshot does not acknowledge the guest's started=true report.
+    // Include a guest-only actor and wait for it: otherwise the immediate claim
+    // race can run before the guest's next 16 ms world-report transmission.
+    auto startedGuest=report(3);auto guestActor=startedGuest.npcs.front();guestActor.localId=2;startedGuest.npcs.push_back(guestActor);
+    host.updateWorld(report(3));guest.updateWorld(startedGuest);
+    until([&]{return guest.status().world.maps[0].npcs.size()==2&&host.status().world.maps[0].npcs.size()==2;});
     auto first=std::async(std::launch::async,[&]{return host.claimEncounter(encounter);});auto second=std::async(std::launch::async,[&]{return guest.claimEncounter(encounter);});const auto h=first.get(),g=second.get();check(bool(h)!=bool(g),"Exactly one native client claim may win");if(h)host.releaseEncounter(h);else guest.releaseEncounter(g);until([&]{return host.status().world.leases.empty()&&guest.status().world.leases.empty();});
     const auto owned=guest.claimEncounter(encounter);check(owned!=0,"Guest can acquire released NPC");guest.stop();until([&]{return host.status().world.leases.empty()&&host.status().peers.size()==1;});
     host.stop();check(host.status().world.maps.empty(),"Leaving must clear shared world cache");

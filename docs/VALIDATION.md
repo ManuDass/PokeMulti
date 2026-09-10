@@ -161,3 +161,10 @@ and reaction replication to both current and late-joining clients.
 - New portable native acceptance scripts cover camp X interactions, ledge movement and session controls, using isolated synthetic worlds and caller-supplied local ROM/state paths.
 
 Final ledge acceptance passed in both LeafGreen (`world-native-fc126135331c`) and FireRed (`world-native-db28c2ee23b7`): straight movement bounded by elapsed native frames, consistent downward facing, native jump height, no temporary scene-plane change, and complete landing after the trainer stops. Jump screenshots from both clients were inspected. The Windows package audited 1,335 files and the installer compiled successfully. No ROM or user data is included.
+
+
+Final camp acceptance (`world-native-ced21af14dda`) passed on 0.26.8: native X targeted different non-lead party members with Party follower disabled, both clients received each reaction, and packing removed the camp. Original PNGs remain unchanged.
+
+Mac preview 0.27.3 passed Apple Silicon and Intel CI at `3210b00` (run 34428881969), architecture checks, original-art byte comparisons, and package privacy checks; both downloads were published. Physical Mac gameplay remains unverified.
+
+The first Windows release CI attempt exposed an existing test setup race: seeing the host's NPC did not prove the guest's `started=true` report had arrived. The shared-world test now waits for a guest-only actor before racing encounter claims. This changes test synchronization only; runtime files and the v0.26.8 tag remain unchanged. All production feature checks above passed before the release retry.
