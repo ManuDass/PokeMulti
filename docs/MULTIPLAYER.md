@@ -162,3 +162,5 @@ composition; native UI, foreground terrain and transition fades retain priority.
 All players must update because FRMP 23 includes shiny state and all twelve follower reaction kinds.
 Save files remain compatible. Saving is manual; the host's Save includes guests
 once they reach a safe field boundary. Exit does not create another checkpoint.
+
+End session stops hosting while the host keeps playing solo. Guests return to the launcher. Exit world returns to world selection, with its manual-save reminder directly above. An explicit host Save stores individual trainer checkpoints in the host world folder; guests in dialogue/battle wait until safe. End session waits for an already requested save without starting a new one. Followers keep their walking history through native ledge elevation changes and synchronize jump height.

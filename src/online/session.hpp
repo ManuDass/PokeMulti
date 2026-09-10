@@ -61,6 +61,7 @@ public:
     Session& operator=(const Session&)=delete;
     void host(uint16_t port,const std::string& key,uint8_t rewards=game::DefaultRewardSharing,bool freshCampaign=false,uint8_t capacity=4);
     void playLocalWorld();
+    void endHosting(); // Keep the local world running; disconnect guests without saving.
     void join(const std::string& ipv4,uint16_t port,const std::string& key);
     void stop();
     void configureWorld(const std::filesystem::path& world,const std::string& romHash,const std::string& secret);

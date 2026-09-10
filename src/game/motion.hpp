@@ -47,7 +47,7 @@ public:
             auto mix=[&](int x,int y){return int16_t(std::lround(x+(y-x)*t));};
             out.pixelX=mix(a.state.pixelX,b.state.pixelX);out.pixelY=mix(a.state.pixelY,b.state.pixelY);
             out.offsetX=int8_t(mix(a.state.offsetX,b.state.offsetX));out.offsetY=int8_t(mix(a.state.offsetY,b.state.offsetY));
-            if(a.state.followerVisible&&b.state.followerVisible){out.followerX=mix(a.state.followerX,b.state.followerX);out.followerY=mix(a.state.followerY,b.state.followerY);
+            if(a.state.followerVisible&&b.state.followerVisible){out.followerX=mix(a.state.followerX,b.state.followerX);out.followerY=mix(a.state.followerY,b.state.followerY);out.followerOffsetY=int8_t(mix(a.state.followerOffsetY,b.state.followerOffsetY));
                 out.followerFacing=movementFacing(b.state.followerX-a.state.followerX,b.state.followerY-a.state.followerY,a.state.followerFacing);}
             return out;
         }

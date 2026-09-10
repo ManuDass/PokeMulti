@@ -20,6 +20,16 @@ int main(){try{
     for(int i=0;i<3;++i)path.update(p,true);check(p.followerFrame==0,"Idle follower keeps walking");p.facing=3;path.update(p,true);check(p.followerFacing==3,"Idle follower did not reorient");
     p.pixelX=300;path.update(p,true);check(!p.followerVisible,"Follower interpolated across warp");
     path.seed(p,284,64);path.update(p,true);auto inactive=p;inactive.active=false;path.update(inactive,true);path.translate(-256,16);p.pixelX-=256;p.pixelY+=16;path.update(p,true);check(p.followerVisible&&p.followerX==28&&p.followerY==80,"Connected map transition lost follower history");
+    FollowerPath ledge;PlayerState jumping;jumping.active=true;jumping.pixelX=128;jumping.pixelY=208;jumping.facing=1;jumping.elevation=3;
+    ledge.seed(jumping,128,192);ledge.update(jumping,true);int lastY=jumping.followerY;bool airborne=false;
+    for(int y=209;y<=256;++y){jumping.pixelY=int16_t(y);jumping.elevation=y>=225&&y<240?0:3;jumping.offsetY=y>224&&y<256?int8_t(-std::min(y-224,256-y)):0;
+        ledge.update(jumping,true);check(jumping.followerVisible&&jumping.followerX==128&&jumping.followerY>=lastY&&jumping.followerY-lastY<=1,"Follower must cross a ledge on one continuous cardinal path");
+        check(jumping.followerFacing==1,"Ledge must not rotate follower backward");airborne|=jumping.followerOffsetY<0;lastY=jumping.followerY;
+    }
+    for(int tick=0;tick<32;++tick){ledge.update(jumping,true);check(jumping.followerY>=lastY&&jumping.followerY-lastY<=1,"Stopped trainer must not snap the follower landing");lastY=jumping.followerY;}
+    check(airborne&&jumping.followerOffsetY==0&&jumping.followerY==256,"Follower must finish its jump if the trainer stops");
+    for(int y=257;y<=288;++y){jumping.pixelY=int16_t(y);ledge.update(jumping,true);check(jumping.followerY>=lastY,"Restoring follower spacing must not rewind");lastY=jumping.followerY;}
+    check(jumping.followerY==272,"Walking must restore one-tile follower spacing");
     FollowerVisual visual;p.follower=1;p.followerToken=11;visual.update(p,true,0);check(!visual.sprite(0),"Send-out starts with supplied ball");visual.update(p,true,30);check(visual.sprite(30),"Send-out reveals follower");visual.update(p,false,31);check(visual.phase==FollowerVisual::Leaving&&visual.sprite(31),"Recall must animate old sprite");visual.update(p,false,61);check(visual.phase==FollowerVisual::Hidden,"Recall must finish");visual.update(p,true,62);visual.update(p,true,92);p.followerToken=12;visual.update(p,true,93);check(visual.phase==FollowerVisual::Leaving,"Same-species party switch must recall old individual");visual.update(p,true,123);check(visual.phase==FollowerVisual::Arriving&&visual.pose.followerToken==12,"Party switch must send new individual");
     check(followerBallPattern(false,4)==1&&followerBallPattern(true,1)==5&&followerEmotePattern(1,4)==9&&followerEmotePattern(2,24)==-1,"Original supplied animation sequence");
     for(unsigned frame=1;frame<10;++frame){
@@ -56,8 +66,8 @@ int main(){try{
     check(followerEmotePattern(0,0)==-1&&followerEmotePattern(FollowerReactionCount+1,0)==-1,"Unknown emotes must not draw a cell");
     check(followerRow(1)==0&&followerRow(2)==3&&followerRow(3)==1&&followerRow(4)==2,"Sheet direction rows are wrong");
     MotionTimeline timeline;PlayerState a;a.active=true;a.identity=1;a.followerVisible=true;a.followerX=30;a.followerY=50;a.followerFacing=4;a.sequence=1;a.sampleTime=100;
-    auto b=a;b.sequence=2;b.sampleTime=120;b.followerY=48;b.followerFacing=2;timeline.push(a,1000);timeline.push(b,1020);
-    check(timeline.sample(1090).followerY==49&&timeline.sample(1090).followerFacing==2,"Network interpolation walked backward through turn");
+    auto b=a;b.sequence=2;b.sampleTime=120;b.followerY=48;b.followerFacing=2;b.followerOffsetY=-12;timeline.push(a,1000);timeline.push(b,1020);
+    check(timeline.sample(1090).followerOffsetY==-6&&timeline.sample(1090).followerY==49&&timeline.sample(1090).followerFacing==2,"Network interpolation walked backward through turn");
     // Owner-supplied source art is optional for portable tests. Verify lossless
     // native-pixel recovery against every source texel whenever it is present.
     const auto file=fr::localAsset("Following Pokemon EX/Graphics/Characters/Followers/BULBASAUR.png");

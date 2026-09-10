@@ -33,7 +33,9 @@ bool translateFollower(const PlayerState& a,const PlayerState& b){
 }
 void updateFollower(){
     if(!local.active)return;
-    if(lastFollowerField.active&&(!sameMap(lastFollowerField,local)||lastFollowerField.elevation!=local.elevation)){
+    // Native ledges temporarily switch elevation mid-jump. That is continuous
+    // motion, not a warp; reseeding here teleports the follower sideways.
+    if(lastFollowerField.active&&!sameMap(lastFollowerField,local)){
         if(!translateFollower(lastFollowerField,local))followerPath.clear();
     }else if(lastFollowerField.active&&std::abs(local.pixelX-lastFollowerField.pixelX)+std::abs(local.pixelY-lastFollowerField.pixelY)>32)followerPath.clear();
     const bool allowed=followOn&&local.follower&&ownStarter()&&!(avatarFlags&0x1e)&&!localCamp.state.id;
@@ -103,8 +105,8 @@ void drawCompanion(uint8_t* rgb,unsigned w,unsigned h,const PlayerState& p,unsig
     if(visual.pose.identity!=p.identity)visual={};
     visual.update(p,followOn&&p.follower&&p.followerVisible&&!campingSlot(slot),now);
     if(visual.phase==FollowerVisual::Hidden||!sameScene(local,visual.pose))return;
-    const auto& pose=visual.pose;const int x=pose.followerX+dx+8,y=pose.followerY+dy;
-    drawingKey=spriteKey(pose.elevation,y+16,16+slot);
+    const auto& pose=visual.pose;const int x=pose.followerX+dx+8,groundY=pose.followerY+dy,y=groundY+pose.followerOffsetY;
+    drawingKey=spriteKey(pose.elevation,groundY+16,16+slot);
     // Effect pixels win the same object's overlap; native UI still wins depth.
     if(visual.phase==FollowerVisual::Arriving||visual.phase==FollowerVisual::Leaving)drawFollowerEffect(0,followerBallPattern(visual.phase==FollowerVisual::Leaving,visual.frame(now)),x,y+4);
     struct Emote {uint16_t sequence=0;uint64_t began=0,identity=0;};static std::array<Emote,MaxRoomPlayers> emotes;

@@ -767,6 +767,7 @@ void frame(uint64_t frameNumber){
     }
     updateFollower();
 #ifdef FR_TEST_HARNESS
+    if(!diagnosticPath.empty()){static std::ofstream jumps(diagnosticPath.parent_path()/"follower-jumps.csv");jumps<<now<<','<<local.pixelX<<','<<local.pixelY<<','<<unsigned(local.elevation)<<','<<int(local.offsetY)<<','<<local.followerX<<','<<local.followerY<<','<<int(local.followerOffsetY)<<','<<unsigned(local.followerFacing)<<'\n';if(now%15==0)jumps.flush();}
     if(!diagnosticPath.empty()){static std::ofstream poses(diagnosticPath.parent_path()/"follower-source.csv");
         poses<<now<<','<<local.pixelX<<','<<local.pixelY<<','<<unsigned(local.facing)<<','<<local.followerVisible<<','<<local.followerX<<','<<local.followerY<<','<<unsigned(local.followerFacing)<<','<<unsigned(local.followerFrame)<<'\n';if(now%60==0)poses.flush();}
 #endif
@@ -931,6 +932,10 @@ void overheads(std::vector<Overhead> labels){
     }
 }
 bool requestWorldExit(){return beginWorldExit();}
+bool worldSavePending(){
+    if(!room)return false;const auto s=room->status();
+    return s.managedWorld&&(worldSaveRequested||manualWorldSave||s.checkpointWaiting||s.checkpointAck<lastCheckpointSent);
+}
 void toggleCamp(){if(!fieldDialog.memory&&!fieldBattleActive)campRequested=true;}
 void challengePlayer(uint8_t slot){requestFieldChallenge(slot);}
 void tradeNearby(){
