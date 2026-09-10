@@ -20,6 +20,17 @@ int main(){try{
     for(int i=0;i<3;++i)path.update(p,true);check(p.followerFrame==0,"Idle follower keeps walking");p.facing=3;path.update(p,true);check(p.followerFacing==3,"Idle follower did not reorient");
     p.pixelX=300;path.update(p,true);check(!p.followerVisible,"Follower interpolated across warp");
     path.seed(p,284,64);path.update(p,true);auto inactive=p;inactive.active=false;path.update(inactive,true);path.translate(-256,16);p.pixelX-=256;p.pixelY+=16;path.update(p,true);check(p.followerVisible&&p.followerX==28&&p.followerY==80,"Connected map transition lost follower history");
+    FollowerPath door;PlayerState exiting;exiting.active=true;exiting.facing=1;exiting.pixelX=416;exiting.pixelY=417;
+    door.seed(exiting,400,432);check(door.empty(),"Mid-step arrival must not seed a diagonal path");
+    door.seed(exiting,416,416);
+    for(int y=417;y<=464;++y){exiting.pixelY=int16_t(y);door.update(exiting,true);
+        check(exiting.followerVisible&&exiting.followerX==416&&exiting.followerY==std::max(416,y-16),"Follower must emerge from the door on the trainer's straight trail");
+        check(exiting.followerFacing==1,"Door exit must not make follower walk backward");}
+    door.clear();exiting.pixelY=416;door.seed(exiting,416,416);door.update(exiting,true);
+    check(exiting.followerVisible&&exiting.followerY==416,"Exact doorway arrival must anchor without waiting for extra input");
+    // Short arrivals also preserve the correct distance for doors facing sideways.
+    exiting.pixelX=417;door.seed(exiting,416,416);exiting.facing=4;door.update(exiting,true);
+    for(int x=418;x<=449;++x){exiting.pixelX=int16_t(x);door.update(exiting,true);check(exiting.followerY==416&&exiting.followerX==std::max(416,x-16),"Side-facing door must retain cardinal trail");}
     FollowerPath ledge;PlayerState jumping;jumping.active=true;jumping.pixelX=128;jumping.pixelY=208;jumping.facing=1;jumping.elevation=3;
     ledge.seed(jumping,128,192);ledge.update(jumping,true);int lastY=jumping.followerY;bool airborne=false;
     for(int y=209;y<=256;++y){jumping.pixelY=int16_t(y);jumping.elevation=y>=225&&y<240?0:3;jumping.offsetY=y>224&&y<256?int8_t(-std::min(y-224,256-y)):0;

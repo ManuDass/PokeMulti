@@ -31,18 +31,37 @@ bool translateFollower(const PlayerState& a,const PlayerState& b){
         followerPath.translate(dx,dy);return true;
     }return false;
 }
+bool seedFollowerAtDoor(){
+    const auto header=releaseHeader(local.mapGroup,local.mapNumber);if(!header)return false;
+    const auto events=r32(header+4);if(!validRom(events,20))return false;
+    const unsigned count=r8(events+1);const auto warps=r32(events+8);
+    if(count>64||!validRom(warps,count*8))return false;
+    for(unsigned i=0;i<count;++i){const auto warp=warps+8*i;
+        if(r8(warp+7)!=lastFollowerField.mapGroup||r8(warp+6)!=lastFollowerField.mapNumber)continue;
+        const int x=s16(warp)*16,y=s16(warp+2)*16,dx=local.pixelX-x,dy=local.pixelY-y;
+        if(std::abs(dx)+std::abs(dy)>16)continue;
+        const bool exiting=(local.facing==1&&dx==0&&dy>=0)||(local.facing==2&&dx==0&&dy<=0)||
+                           (local.facing==3&&dy==0&&dx<=0)||(local.facing==4&&dy==0&&dx>=0);
+        if(!exiting)continue;
+        // Doors are valid arrival anchors even when their closed metatile is
+        // marked solid. Follow the actual native step through that same door.
+        followerPath.seed(local,x,y);return !followerPath.empty();
+    }return false;
+}
 void updateFollower(){
     if(!local.active)return;
     // Native ledges temporarily switch elevation mid-jump. That is continuous
     // motion, not a warp; reseeding here teleports the follower sideways.
+    bool warped=false;
     if(lastFollowerField.active&&!sameMap(lastFollowerField,local)){
-        if(!translateFollower(lastFollowerField,local))followerPath.clear();
+        if(!translateFollower(lastFollowerField,local)){followerPath.clear();warped=true;}
     }else if(lastFollowerField.active&&std::abs(local.pixelX-lastFollowerField.pixelX)+std::abs(local.pixelY-lastFollowerField.pixelY)>32)followerPath.clear();
     const bool allowed=followOn&&local.follower&&ownStarter()&&!(avatarFlags&0x1e)&&!localCamp.state.id;
+    if(allowed&&warped)seedFollowerAtDoor();
     if(allowed&&followerPath.empty()){
         constexpr int dx[]{0,0,0,-1,1},dy[]{0,1,-1,0,0};constexpr unsigned opposite[]{0,2,1,4,3};
         const unsigned behind=opposite[std::clamp(unsigned(local.facing),1u,4u)];
-        for(unsigned direction:{behind,3u,4u,1u,2u}){const int x=local.x+dx[direction],y=local.y+dy[direction];if(followerTile(x,y)){followerPath.seed(local,x*16,y*16);break;}}
+        for(unsigned direction:{behind,3u,4u,1u,2u}){const int x=local.x+dx[direction],y=local.y+dy[direction];if(followerTile(x,y)){followerPath.seed(local,x*16,y*16);if(!followerPath.empty())break;}}
     }
     // An unseeded path still accumulates safe movement if all neighbors block.
     followerPath.update(local,allowed);

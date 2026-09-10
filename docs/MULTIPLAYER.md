@@ -164,3 +164,5 @@ Save files remain compatible. Saving is manual; the host's Save includes guests
 once they reach a safe field boundary. Exit does not create another checkpoint.
 
 End session stops hosting while the host keeps playing solo. Guests return to the launcher. Exit world returns to world selection, with its manual-save reminder directly above. An explicit host Save stores individual trainer checkpoints in the host world folder; guests in dialogue/battle wait until safe. End session waits for an already requested save without starting a new one. Followers keep their walking history through native ledge elevation changes and synchronize jump height.
+
+Preview 0.27.4 fixes follower building exits: the follower starts at the native doorway and follows the trainer on a straight path. It retains FRMP 23 compatibility with Windows 0.26.9 and existing saves.

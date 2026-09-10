@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(PokeMulti VERSION 0.27.3 LANGUAGES C CXX)
+project(PokeMulti VERSION 0.27.4 LANGUAGES C CXX)
 configure_file(src/platform/version.hpp.in generated/platform/version.hpp @ONLY)
 if(APPLE)
   include(cmake/Mac.cmake)
