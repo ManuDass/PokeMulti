@@ -69,7 +69,7 @@ since the last completed safe checkpoint.
 
 The separate macOS preview branch passed native Intel and Apple Silicon builds,
 CTest, ROM-free launcher and packaged-app smoke checks, and ad-hoc signature
-verification in GitHub Actions run `34421232551` for preview 0.27.1. Portable
+verification in GitHub Actions run `34426008007` for preview 0.27.2. Portable
 tests also cover profile-preserving ROM switches, shiny traits, world isolation
 and host/guest shiny settings. Both LeafGreen cartridge
 previews were visually reviewed, and the packaged artwork matches the supplied
@@ -138,3 +138,8 @@ Final 0.26.7 validation: all 54 Windows CTest groups passed. Two connected
 LeafGreen clients completed all twelve native X reactions. The final Windows
 package audit found 1,335 installed files and no ROMs, personal saves, native
 caches or test executables.
+
+All twelve final native emote previews were reviewed at their active animation
+frames, including both cross-row pairs. Apple Silicon and Intel preview 0.27.2
+passed CI, package/architecture checks, and byte-for-byte original animation
+and shiny-art checks before their downloads were published.
