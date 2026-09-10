@@ -206,6 +206,9 @@ bool readPlayer(PlayerState& out){
     out.active=true;out.mapGroup=r8(save+4);out.mapNumber=r8(save+5);
     out.x=int16_t(s16(object+16)-7);out.y=int16_t(s16(object+18)-7);
     out.elevation=r8(object+11)&15;out.facing=r8(object+24)&15;out.graphics=r8(object+5);
+    // Elevation zero on a ledge inherits the last plane; sending it as a new
+    // floor makes other clients hide the trainer and reset their motion history.
+    if(!out.elevation&&completedPlayer.active&&sameMap(out,completedPlayer))out.elevation=completedPlayer.elevation;
     avatarFlags=r8(0x02037078);out.follower=leadSpecies(out.followerShiny,out.followerToken);
     const auto partyCount=r8(0x02024029);out.partyCount=partyCount<=6?partyCount:0;out.partyEggs=partyEggMask(out.partyCount);
     const uint32_t layout=r32(0x02036dfc);
@@ -605,6 +608,7 @@ int trainer(uint8_t* rgb,unsigned w,unsigned h,const PlayerState& peer,int x,int
     if(!validRom(frames,8*(frame+1)))return int(h);
     return blit(rgb,w,h,r32(frames+frame*8),pal,sw,sh,x-sw/2+peer.offsetX,y+16-sh+peer.offsetY,(peer.flip&1)!=0,(peer.flip&2)!=0,paint);
 }
+void drawCampReaction(const CampMon&,const PlayerState&,unsigned,unsigned,uint32_t,int,int);
 #include "world_camp.inc"
 bool departingSlot(unsigned slot);
 #include "world_battle.inc"
@@ -766,6 +770,7 @@ void frame(uint64_t frameNumber){
     }
     updateFollower();
 #ifdef FR_TEST_HARNESS
+    if(!diagnosticPath.empty()){static std::ofstream jumps(diagnosticPath.parent_path()/"follower-jumps.csv");jumps<<now<<','<<local.pixelX<<','<<local.pixelY<<','<<unsigned(local.elevation)<<','<<int(local.offsetY)<<','<<local.followerX<<','<<local.followerY<<','<<int(local.followerOffsetY)<<','<<unsigned(local.followerFacing)<<'\n';if(now%15==0)jumps.flush();}
     if(!diagnosticPath.empty()){static std::ofstream poses(diagnosticPath.parent_path()/"follower-source.csv");
         poses<<now<<','<<local.pixelX<<','<<local.pixelY<<','<<unsigned(local.facing)<<','<<local.followerVisible<<','<<local.followerX<<','<<local.followerY<<','<<unsigned(local.followerFacing)<<','<<unsigned(local.followerFrame)<<'\n';if(now%60==0)poses.flush();}
 #endif
@@ -930,6 +935,10 @@ void overheads(std::vector<Overhead> labels){
     }
 }
 bool requestWorldExit(){return beginWorldExit();}
+bool worldSavePending(){
+    if(!room)return false;const auto s=room->status();
+    return s.managedWorld&&(worldSaveRequested||manualWorldSave||s.checkpointWaiting||s.checkpointAck<lastCheckpointSent);
+}
 void toggleCamp(){if(!fieldDialog.memory&&!fieldBattleActive)campRequested=true;}
 void challengePlayer(uint8_t slot){requestFieldChallenge(slot);}
 void tradeNearby(){

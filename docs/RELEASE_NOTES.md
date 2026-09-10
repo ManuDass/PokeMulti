@@ -1,6 +1,16 @@
 Download **PokeMulti-Setup.exe** and run the installation wizard. Existing Windows
 installations can use **Update program → Check for updates → Download & restart**.
 
+- Followers keep their path across ledges and replay the jump height, including on other players' screens. They finish landing when the trainer stops.
+- **End session** stops hosting and returns guests to the launcher while you keep
+  playing solo. **Exit world** closes the game and returns to world selection;
+  the manual-save reminder now sits directly above that button.
+- Every host Save requests a separate native save for each connected trainer in
+  the host's world folder. Busy trainers save once they reach a safe field state;
+  ending hosting waits for a save already in progress and never starts one itself.
+- Face a nearby party Pokemon in your camp and press **X** to interact. It
+  turns toward you, pauses for its cry and emote, then resumes roaming. Nearby
+  players see the same reaction. This also works with Party follower disabled.
 - Send-out uses the four populated top-row animation cells; return uses only
   the three populated bottom-row cells. Each frame replaces the previous cell.
 - Follower interactions also include the two distinct question and exclamation
@@ -22,7 +32,7 @@ installations can use **Update program → Check for updates → Download & rest
   the periodic save calls responsible for hosting pauses. Save before leaving;
   **Exit world** does not start a save.
 
-Everyone in a room must update to **FRMP 22**. Existing saves remain compatible;
+Everyone in a room must update to **FRMP 23**. Existing saves remain compatible;
 rooms still require matching game and ROM revisions.
 
 Windows 10/11 x64. **No ROM included:** supply your own unmodified English

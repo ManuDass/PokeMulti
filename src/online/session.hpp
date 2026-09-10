@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 namespace fr::online {
-inline constexpr uint8_t RoomProtocolVersion=22;
+inline constexpr uint8_t RoomProtocolVersion=23;
 enum class Activity:uint8_t { Battle=1, Trade=2 };
 struct Peer {
     uint8_t slot=0;
@@ -61,6 +61,7 @@ public:
     Session& operator=(const Session&)=delete;
     void host(uint16_t port,const std::string& key,uint8_t rewards=game::DefaultRewardSharing,bool freshCampaign=false,uint8_t capacity=4);
     void playLocalWorld();
+    void endHosting(); // Keep the local world running; disconnect guests without saving.
     void join(const std::string& ipv4,uint16_t port,const std::string& key);
     void stop();
     void configureWorld(const std::filesystem::path& world,const std::string& romHash,const std::string& secret);

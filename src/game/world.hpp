@@ -18,6 +18,7 @@ struct PlayerState {
     uint8_t spriteFrame=0,flip=0;
     bool followerVisible=false;
     uint8_t followerFacing=1,followerFrame=0;
+    int8_t followerOffsetY=0; // Height above the follower's own ground path, including ledge jumps.
     uint32_t sequence=0,sampleTime=0;
     uint64_t identity=0; // receiver-local identity; not serialized
     uint8_t netSlot=255;
@@ -41,6 +42,7 @@ void overheads(std::vector<Overhead> labels);
 void toggleCamp();
 void tradeNearby();
 bool requestWorldExit();
+bool worldSavePending();
 void challengePlayer(uint8_t slot);
 bool camping();
 std::string campNotice();

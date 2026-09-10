@@ -261,10 +261,18 @@ struct Panel::Impl {
         }
     }
 #include "panel_connection.inc"
+    void exitWorld(const Status& status){
+        ImGui::Spacing();heading("WORLD SAVE");
+        paragraph(!status.managedWorld||status.localWorld?"Saving is manual. Save from the game menu before exiting.":status.hosting?"Saving is manual. Your Save saves each trainer into this world. Save before exiting.":"Saving is manual. Ask the host to save your progress before exiting.");
+        if(game::worldSavePending())paragraph("Saving world progress...");
+        if(status.checkpointWaiting)ImGui::TextWrapped("Waiting for %u trainer(s) to finish their battle or dialogue and save.",status.checkpointWaiting);
+        if(ImGui::Button("Exit world",{-1,30})){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}
+    }
     void room(const Status& status){
         if(status.localWorld||(!status.running&&status.managedWorld)){
-            paragraph("Choose Host world or Join a friend from the launcher.");
-            if(primary("Return to world selection")){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}return;
+            paragraph(status.localWorld?"Playing solo. Choose Host world from the launcher to invite friends again.":"Choose Host world or Join a friend from the launcher.");
+            if(status.localWorld&&ImGui::Button("Campaign journal",{-1,28})){game::showCampaignJournal();gameFocus=true;}
+            exitWorld(status);return;
         }
         if(!status.running){
             ImGui::PushFont(bold);ImGui::TextUnformatted("Better together.");ImGui::PopFont();
@@ -324,7 +332,8 @@ struct Panel::Impl {
                 if(!status.wager.active())paragraph("Battles start in the field. Trading uses the upstairs Cable Club.");
                 if(ImGui::Button("Disconnect cable",{-1,26}))guard([&]{session.disconnectCable();});
             }
-            ImGui::Spacing();ImGui::BeginDisabled(busy());if(ImGui::Button(status.managedWorld?"Exit world":"Leave room",{-1,26})){if(status.managedWorld){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}else async([this]{session.stop();});}ImGui::EndDisabled();
+            if(status.managedWorld)exitWorld(status);
+            else{ImGui::Spacing();ImGui::BeginDisabled(busy());if(ImGui::Button("Leave room",{-1,26}))async([this]{session.stop();});ImGui::EndDisabled();}
         }
         connectionDetails(status);
     }
@@ -442,8 +451,13 @@ struct Panel::Impl {
         ImGui::Spacing();heading("DISPLAY");
         if(ImGui::Button("Focus on the game",{-1,30})){sidebar=false;gameFocus=true;}
         if(ImGui::CollapsingHeader("Keyboard controls"))paragraph("WASD / Arrows   Move\nX             Talk / Pet / Nearby battle\nZ             Cancel / Run (with shoes)\nEnter     Game menu / Save\nR Shift   Select\nC / V      L / R\nG             Camp / Pack up\nT             Trade with facing trainer\nChat       Click input, Enter to send\nEsc        Return to game\nF2           Online sidebar\nF11        Fullscreen\nF12        Screenshot");
-        heading("WORLD SAVE");paragraph(status.managedWorld?"Saving is manual. The host saves everyone from the game menu. Save before leaving.":"Save from the game's Start menu.");
-        if(ImGui::Button("End session",{-1,30})){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}
+        if(status.running&&status.hosting&&!status.localWorld){
+            ImGui::Spacing();paragraph("Stop hosting and keep playing solo. Guests return to the launcher.");
+            ImGui::BeginDisabled(busy()||game::worldSavePending());
+            if(ImGui::Button("End session",{-1,30}))guard([&]{session.endHosting();});
+            ImGui::EndDisabled();
+            if(game::worldSavePending())paragraph("Finish the current save before ending the session.");
+        }
     }
     void chatDock(const Status& status,ImVec2 pos,ImVec2 size){
         if(wasConnected&&!status.connected){draft.fill(0);chatError.clear();shownChat=0;focusChat=false;}
@@ -553,7 +567,7 @@ struct Panel::Impl {
         ImGui::End();ImGui::PopStyleVar(2);ImGui::PopStyleColor();ImGui::Render();ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(),renderer);
 #ifdef FR_TEST_HARNESS
         if(++uiFrames%10==0){int w=0,h=0;SDL_GetWindowSize(window,&w,&h);std::ostringstream report;
-            report<<"frames="<<uiFrames<<" command="<<uiCommand<<" phase="<<uiPhase<<" connected="<<status.connected<<" hosting="<<status.hosting<<" peers="<<status.peers.size()<<" invitation="<<status.invitation.from<<" cable="<<session.cableConnected()<<" tab="<<tab<<" sidebar="<<sidebar<<" keyboard="<<(!gameFocus||ImGui::GetIO().WantTextInput)<<" size="<<w<<","<<h<<" port="<<port.data()<<" key="<<key.data()<<" chat="<<status.chat.size()<<" chat_focus="<<ImGui::GetIO().WantTextInput<<" options_tab="<<optionsTab<<" ball_model="<<ballModel.triangles()<<" ball_phase="<<int(ballState().phase)<<" ball_resume_x="<<int(ballResumeX)<<" ball_resume_y="<<int(ballResumeY)<<" ball_resume="<<resumeAfterBallConnect<<" ball_armed="<<ballControls.armed()<<" ball_keys="<<ballLastKeys<<" scroll="<<sidebarScroll<<" public_lookup="<<int(publicAddress.state())<<" public_valid="<<validConnectionIPv4(publicAddress.address(),true)<<" shiny_rate="<<status.shinyRate<<" leaf_theme="<<leaf<<" volume="<<gameVolume<<" money="<<game::walletBalance()<<" held="<<game::walletHeld()<<" viewport="<<viewportX<<","<<viewportY<<","<<viewportW<<","<<viewportH<<" chrome_clear="<<(viewportY-5>=top+43&&viewportY+viewportH+5<=gameBottom-30)<<" error="<<error<<"\n";
+            report<<"frames="<<uiFrames<<" command="<<uiCommand<<" phase="<<uiPhase<<" connected="<<status.connected<<" hosting="<<status.hosting<<" solo="<<status.localWorld<<" checkpoint_waiting="<<status.checkpointWaiting<<" peers="<<status.peers.size()<<" invitation="<<status.invitation.from<<" cable="<<session.cableConnected()<<" tab="<<tab<<" sidebar="<<sidebar<<" keyboard="<<(!gameFocus||ImGui::GetIO().WantTextInput)<<" size="<<w<<","<<h<<" port="<<port.data()<<" key="<<key.data()<<" chat="<<status.chat.size()<<" chat_focus="<<ImGui::GetIO().WantTextInput<<" options_tab="<<optionsTab<<" ball_model="<<ballModel.triangles()<<" ball_phase="<<int(ballState().phase)<<" ball_resume_x="<<int(ballResumeX)<<" ball_resume_y="<<int(ballResumeY)<<" ball_resume="<<resumeAfterBallConnect<<" ball_armed="<<ballControls.armed()<<" ball_keys="<<ballLastKeys<<" scroll="<<sidebarScroll<<" public_lookup="<<int(publicAddress.state())<<" public_valid="<<validConnectionIPv4(publicAddress.address(),true)<<" shiny_rate="<<status.shinyRate<<" leaf_theme="<<leaf<<" volume="<<gameVolume<<" money="<<game::walletBalance()<<" held="<<game::walletHeld()<<" viewport="<<viewportX<<","<<viewportY<<","<<viewportW<<","<<viewportH<<" chrome_clear="<<(viewportY-5>=top+43&&viewportY+viewportH+5<=gameBottom-30)<<" error="<<error<<"\n";
             try{atomicText(data/"test-ui-status.txt",report.str());
                 std::ostringstream transcript;for(const auto& m:status.chat)transcript<<m.sequence<<' '<<unsigned(m.slot)<<' '<<std::quoted(m.id)<<' '<<std::quoted(m.name)<<' '<<std::quoted(m.text)<<'\n';atomicText(data/"test-chat.txt",transcript.str());}catch(const std::exception&){}}
 #endif

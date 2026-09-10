@@ -42,7 +42,7 @@ void player(Bytes& b,const game::PlayerState& p){
     word(b,uint16_t(p.x));word(b,uint16_t(p.y));word(b,p.follower);
     word(b,uint16_t(p.pixelX));word(b,uint16_t(p.pixelY));word(b,uint16_t(p.followerX));word(b,uint16_t(p.followerY));
     byte(b,uint8_t(p.offsetX));byte(b,uint8_t(p.offsetY));byte(b,p.spriteFrame);byte(b,p.flip);byte(b,p.followerVisible?1:0);byte(b,p.followerFacing);byte(b,p.followerFrame);
-    dword(b,p.sequence);dword(b,p.sampleTime);byte(b,p.partyCount);byte(b,p.partyEggs);byte(b,p.followerShiny);dword(b,p.followerToken);word(b,p.followerEmoteSequence);byte(b,p.followerEmote);
+    dword(b,p.sequence);dword(b,p.sampleTime);byte(b,p.partyCount);byte(b,p.partyEggs);byte(b,p.followerShiny);dword(b,p.followerToken);word(b,p.followerEmoteSequence);byte(b,p.followerEmote);byte(b,uint8_t(p.followerOffsetY));
 }
 game::PlayerState player(Reader& r){
     game::PlayerState p;const auto active=r.u8();p.active=active==1;
@@ -50,7 +50,7 @@ game::PlayerState player(Reader& r){
     p.x=int16_t(r.u16());p.y=int16_t(r.u16());p.follower=uint16_t(r.u16());
     p.pixelX=int16_t(r.u16());p.pixelY=int16_t(r.u16());p.followerX=int16_t(r.u16());p.followerY=int16_t(r.u16());
     p.offsetX=int8_t(r.u8());p.offsetY=int8_t(r.u8());p.spriteFrame=uint8_t(r.u8());p.flip=uint8_t(r.u8());const auto visible=r.u8();p.followerVisible=visible==1;p.followerFacing=uint8_t(r.u8());p.followerFrame=uint8_t(r.u8());
-    p.sequence=r.u32();p.sampleTime=r.u32();p.partyCount=uint8_t(r.u8());p.partyEggs=uint8_t(r.u8());p.followerShiny=r.boolean();p.followerToken=r.u32();p.followerEmoteSequence=uint16_t(r.u16());p.followerEmote=uint8_t(r.u8());if(p.followerEmote>game::FollowerReactionCount)throw std::runtime_error("Invalid follower emote");
+    p.sequence=r.u32();p.sampleTime=r.u32();p.partyCount=uint8_t(r.u8());p.partyEggs=uint8_t(r.u8());p.followerShiny=r.boolean();p.followerToken=r.u32();p.followerEmoteSequence=uint16_t(r.u16());p.followerEmote=uint8_t(r.u8());p.followerOffsetY=int8_t(r.u8());if(p.followerOffsetY>0||p.followerOffsetY< -64)throw std::runtime_error("Invalid follower jump height");if(p.followerEmote>game::FollowerReactionCount)throw std::runtime_error("Invalid follower emote");
     if(p.pixelX< -32||p.pixelY< -32||p.pixelX>8224||p.pixelY>8224||p.followerX< -32||p.followerY< -32||p.followerX>8224||p.followerY>8224||std::abs(int(p.offsetX))>64||std::abs(int(p.offsetY))>64||p.spriteFrame>=64||p.flip>3||visible>1||p.followerFacing<1||p.followerFacing>4||p.followerFrame>3)
         throw std::runtime_error("Invalid sprite pose");
     if(p.partyCount>6 || (p.partyEggs>>p.partyCount)!=0 || active>1 || p.elevation>15 || p.facing<1 || p.facing>4 || p.graphics>=152 || p.x<0 || p.y<0 || p.x>511 || p.y>511 || p.follower>411)
@@ -63,11 +63,11 @@ void wildState(Bytes& b,const WildState& w){dword(b,w.id);word(b,w.species);byte
 WildState wildState(Reader& r){WildState w;w.id=r.u32();w.species=uint16_t(r.u16());w.level=uint8_t(r.u8());w.elevation=uint8_t(r.u8());w.x=int16_t(r.u16());w.y=int16_t(r.u16());w.pixelX=int16_t(r.u16());w.pixelY=int16_t(r.u16());w.facing=uint8_t(r.u8());w.frame=uint8_t(r.u8());w.shiny=r.boolean();return w;}
 void campState(Bytes& b,const game::CampState& c){
     dword(b,c.id);if(!c.id)return;dword(b,c.sequence);dword(b,c.sampleTime);dword(b,c.tick);byte(b,c.group);byte(b,c.map);byte(b,c.elevation);word(b,uint16_t(c.x));word(b,uint16_t(c.y));for(auto row:c.ground)word(b,row);byte(b,unsigned(c.party.size()));
-    for(const auto& p:c.party){word(b,p.species);word(b,uint16_t(p.x));word(b,uint16_t(p.y));byte(b,p.facing);byte(b,p.frame);byte(b,p.mood);byte(b,p.shiny);}
+    for(const auto& p:c.party){word(b,p.species);word(b,uint16_t(p.x));word(b,uint16_t(p.y));byte(b,p.facing);byte(b,p.frame);byte(b,p.mood);byte(b,p.shiny);word(b,p.emoteSequence);byte(b,p.emote);}
 }
 game::CampState campState(Reader& r){
     game::CampState c;c.id=r.u32();if(!c.id)return c;c.sequence=r.u32();c.sampleTime=r.u32();c.tick=r.u32();c.group=uint8_t(r.u8());c.map=uint8_t(r.u8());c.elevation=uint8_t(r.u8());c.x=int16_t(r.u16());c.y=int16_t(r.u16());for(auto& row:c.ground)row=uint16_t(r.u16());auto n=r.u8();if(n>6)throw std::runtime_error("Too many camp Pokemon");
-    while(n--){game::CampMon p;p.species=uint16_t(r.u16());p.x=int16_t(r.u16());p.y=int16_t(r.u16());p.facing=uint8_t(r.u8());p.frame=uint8_t(r.u8());p.mood=uint8_t(r.u8());p.shiny=r.boolean();c.party.push_back(p);}if(!game::validCamp(c))throw std::runtime_error("Invalid camp state");return c;
+    while(n--){game::CampMon p;p.species=uint16_t(r.u16());p.x=int16_t(r.u16());p.y=int16_t(r.u16());p.facing=uint8_t(r.u8());p.frame=uint8_t(r.u8());p.mood=uint8_t(r.u8());p.shiny=r.boolean();p.emoteSequence=uint16_t(r.u16());p.emote=uint8_t(r.u8());c.party.push_back(p);}if(!game::validCamp(c))throw std::runtime_error("Invalid camp state");return c;
 }
 void battleState(Bytes& b,const game::BattlePresence& fight){dword(b,fight.id);if(!fight.id)return;dword(b,fight.tick);byte(b,(fight.settled?1:0)|(fight.returning?2:0));player(b,fight.trainer);byte(b,unsigned(fight.mons.size()));for(const auto& m:fight.mons){byte(b,m.position);word(b,m.species);word(b,uint16_t(m.x));word(b,uint16_t(m.y));byte(b,m.facing);byte(b,m.visible);byte(b,m.frame);byte(b,m.walking);byte(b,m.shiny);}}
 game::BattlePresence battleState(Reader& r){game::BattlePresence b;b.id=r.u32();if(!b.id)return b;b.tick=r.u32();auto flags=r.u8();if(flags>3)throw std::runtime_error("Invalid battle phase");b.settled=flags&1;b.returning=flags&2;b.trainer=player(r);auto n=r.u8();if(n>4)throw std::runtime_error("Too many battle actors");while(n--){game::BattleMon m;m.position=uint8_t(r.u8());m.species=uint16_t(r.u16());m.x=int16_t(r.u16());m.y=int16_t(r.u16());m.facing=uint8_t(r.u8());auto visible=r.u8();if(visible>1)throw std::runtime_error("Invalid battle visibility");m.visible=visible!=0;m.frame=uint8_t(r.u8());auto walking=r.u8();if(walking>1)throw std::runtime_error("Invalid battle walking state");m.walking=walking!=0;m.shiny=r.boolean();b.mons.push_back(m);}if(!game::validBattle(b))throw std::runtime_error("Invalid battle presentation");return b;}
@@ -123,7 +123,7 @@ struct Session::Impl {
     struct Serial {int from;uint32_t sequence;uint16_t word;uint32_t elapsed=0;};
     mutable std::mutex mutex;std::condition_variable changed;
     std::thread worker;std::atomic<bool> quit{false},incomingSerial{false};
-    bool joinRejected=false;
+    bool joinRejected=false,endHostingRequested=false;
     Status current;std::string identity,name,key,ip;game::PlayerState local{};
     std::vector<Connection> connections;SOCKET listener=INVALID_SOCKET;
     WSAEVENT listenerEvent=WSA_INVALID_EVENT;HANDLE wake=nullptr;
@@ -446,7 +446,7 @@ struct Session::Impl {
             if(worldPlayers&&romHash!=expectedRom){rejectJoin(c,"ROM mismatch. Choose the same game and ROM revision as the host (FireRed or LeafGreen).");return;}
             if(worldPlayers&&!worldPlayers->authenticate(id,secret)){rejectJoin(c,"This trainer's world identity does not match. Use the original player profile.");return;}
             if(!worldPlayers&&!romHash.empty()){rejectJoin(c,"The host must select a saved world in the launcher.");return;}
-            transfers[slot]={};c.slot=slot;lastChat[slot]=0;Peer p;p.slot=uint8_t(slot);p.id=id;p.name=trainerName;p.chatAfter=chatSequence;current.peers.push_back(p);
+            transfers[slot]={};committedRequests[slot]=current.checkpointRequest;c.slot=slot;lastChat[slot]=0;Peer p;p.slot=uint8_t(slot);p.id=id;p.name=trainerName;p.chatAfter=chatSequence;current.peers.push_back(p);
             Bytes b;byte(b,unsigned(slot));byte(b,current.rewardPolicy);byte(b,current.capacity);byte(b,current.managedWorld);string(b,current.worldId);string(b,current.worldName);queue(c,Welcome,b);emitShinyRate();emitSnapshot();emitStory(worldAuthority.snapshot().story);emitLeases();emitCamps();emitBattles();emitWagers();emitReleased();emitCampaign();membership(p,1);if(worldPlayers)sendCheckpoint(slot,1,worldPlayers->load(id));return;
         }
         receive(type,payload,c.slot);
@@ -497,6 +497,18 @@ struct Session::Impl {
                         if(current.hosting)route(command.type,command.body,0);
                         else if(current.connected&&!connections.empty())queue(connections[0],command.type,command.body);
                     }
+                    if(endHostingRequested){
+                        // Only the worker owns socket/event lifetimes. Keep the in-memory
+                        // authority, campaign and local trainer intact when hosting ends.
+                        bool saving=current.checkpointAck<saveSequence;
+                        for(const auto& p:current.peers)if(p.slot&&committedRequests[p.slot]<current.checkpointRequest)saving=true;
+                        if(!saving){
+                            closeListener();
+                            while(!connections.empty())disconnect(connections.size()-1);
+                            current.localWorld=true;current.port=0;endHostingRequested=false;
+                            current.message="Hosting ended. Playing solo.";
+                        }
+                    }
                     if(current.hosting){
                         unsigned count=0;while(!releaseBroadcasts.empty()&&count++<4){auto i=releaseBroadcasts.upper_bound(releaseBroadcastCursor);if(i==releaseBroadcasts.end())i=releaseBroadcasts.begin();releaseBroadcastCursor=i->first;Bytes b;released(b,i->second);broadcast(ReleasedSnapshot,b);releaseBroadcasts.erase(i);}
                     }
@@ -529,7 +541,7 @@ struct Session::Impl {
         if(!textSafe(roomKey,64)||roomKey.size()<8)throw std::runtime_error("Use a room key of 8 to 64 characters.");
         wallets={};invitationSequence=0;wagers.manualSaving(bool(worldPlayers));releaseBook.manualSaving(bool(worldPlayers));campaign.manualSaving(bool(worldPlayers));if(host)wagers.open(accountFolder.empty()?std::filesystem::path{}:accountFolder/"wagers-host.cfg");
         releaseBroadcasts.clear();releaseReplies.clear();releaseFlushed=0;if(host)releaseBook.open(accountFolder.empty()?std::filesystem::path{}:accountFolder/"released-world.cfg");
-        current={};joinRejected=false;
+        current={};joinRejected=false;endHostingRequested=false;
         if(host){
             const auto settings=accountFolder/"shiny-rate.cfg";
             if(!accountFolder.empty()&&std::filesystem::exists(settings)){
@@ -572,6 +584,11 @@ Session::Session(std::string id,std::string name,const std::filesystem::path& ac
 Session::~Session()=default;
 void Session::host(uint16_t port,const std::string& key,uint8_t rewards,bool freshCampaign,uint8_t capacity){impl_->start(true,"",port,key,rewards,freshCampaign,capacity);}
 void Session::playLocalWorld(){impl_->start(true,"offline",0,randomId());}
+void Session::endHosting(){
+    std::lock_guard lock(impl_->mutex);
+    if(!impl_->current.running||!impl_->current.hosting||impl_->current.localWorld)return;
+    impl_->endHostingRequested=true;SetEvent(impl_->wake);
+}
 void Session::join(const std::string& ip,uint16_t port,const std::string& key){impl_->start(false,ip,port,key);}
 void Session::stop(){impl_->shutdown();std::lock_guard lock(impl_->mutex);impl_->current={};impl_->current.message="You left the room.";}
 Status Session::status() const{std::lock_guard lock(impl_->mutex);auto state=impl_->current;if(state.hosting&&state.managedWorld&&state.checkpointRequest)for(const auto& p:state.peers)if(p.slot&&impl_->committedRequests[p.slot]<state.checkpointRequest)++state.checkpointWaiting;return state;}

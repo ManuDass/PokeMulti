@@ -3,7 +3,6 @@
 uint64_t nextFlashCheck=0,nextDeparture=0;
 uint32_t seenWorldSaveRequest=0;
 bool worldSaveRequested=false,manualWorldSave=false;
-std::string lastWorldCheckpoint;
 PlayerState lastLocalField;
 bool worldExitRequested=false,worldExitReady=false;uint64_t worldExitBegan=0;
 uint32_t lastCheckpointSent=0;
@@ -56,9 +55,14 @@ void updateWorldSession(){
     // No checkpoint of a blank cartridge or incomplete native save sequence.
     if(flash.size()!=131072||std::none_of(flash.begin(),flash.end(),[](uint8_t v){return v!=255;}))return;
     if(!fieldSafe&&!manualWorldSave)return;
-    const auto checkpoint=fr::captureCheckpoint(diagnosticPath.parent_path(),flash);const auto hash=fr::digest(checkpoint);
-    if(hash!=lastWorldCheckpoint){if(const auto serial=room->storeCheckpoint(checkpoint)){lastCheckpointSent=serial;lastWorldCheckpoint=hash;if(status.hosting)room->requestWorldSave();}}
-    manualWorldSave=false;
+    const auto checkpoint=fr::captureCheckpoint(diagnosticPath.parent_path(),flash);
+    // Every explicit request receives a durable receipt, even for identical bytes.
+    // Otherwise an unchanged guest can leave the host waiting for this save forever.
+    if(const auto serial=room->storeCheckpoint(checkpoint)){
+        lastCheckpointSent=serial;
+        if(status.hosting)room->requestWorldSave();
+        manualWorldSave=false;
+    }
 
 }
 void drawDepartures(uint8_t* rgb,unsigned w,unsigned h,int dx,int dy){

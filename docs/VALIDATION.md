@@ -143,3 +143,21 @@ All twelve final native emote previews were reviewed at their active animation
 frames, including both cross-row pairs. Apple Silicon and Intel preview 0.27.2
 passed CI, package/architecture checks, and byte-for-byte original animation
 and shiny-art checks before their downloads were published.
+
+## Camp party interactions (0.26.8 / FRMP 23)
+
+X selects the nearby camp party member in front of the trainer, independently
+of the follower setting. The chosen member pauses without snapping mid-step,
+faces the trainer, and resumes roaming after its reaction. Other party members
+continue moving. Camp packets carry each member's reaction kind and sequence.
+Tests cover proximity, exclusive targeting, pause/resume motion, invalid input,
+and reaction replication to both current and late-joining clients.
+
+### Session controls and ledge regression (0.26.8)
+
+- `release-0268-build.log`: 54/54 test groups passed, including identical-checkpoint receipts, reconnect save baselines, ending hosting without resetting in-memory world authority, solo saves and socket disconnects.
+- `session-0268-acceptance.log` / `world-native-cfe7a6b8621e`: real native host Save waits for guest dialogue to close, then commits separate trainer files. The actual End session button returns the guest to the launcher while the host keeps walking and saving; the actual Exit world button then closes the game. Reminder placement and both UI states inspected in screenshots.
+- Route 1 reproduction: elevation changes reseeded the follower from `(128,239)` to `(112,256)`, then pulled it diagonally backward. The fix retains its cardinal trail, records the native jump height and finishes that arc even if the trainer stops. Socket and interpolation tests include the follower height.
+- New portable native acceptance scripts cover camp X interactions, ledge movement and session controls, using isolated synthetic worlds and caller-supplied local ROM/state paths.
+
+Final ledge acceptance passed in both LeafGreen (`world-native-fc126135331c`) and FireRed (`world-native-db28c2ee23b7`): straight movement bounded by elapsed native frames, consistent downward facing, native jump height, no temporary scene-plane change, and complete landing after the trainer stops. Jump screenshots from both clients were inspected. The Windows package audited 1,335 files and the installer compiled successfully. No ROM or user data is included.

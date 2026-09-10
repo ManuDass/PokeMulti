@@ -33,7 +33,9 @@ bool translateFollower(const PlayerState& a,const PlayerState& b){
 }
 void updateFollower(){
     if(!local.active)return;
-    if(lastFollowerField.active&&(!sameMap(lastFollowerField,local)||lastFollowerField.elevation!=local.elevation)){
+    // Native ledges temporarily switch elevation mid-jump. That is continuous
+    // motion, not a warp; reseeding here teleports the follower sideways.
+    if(lastFollowerField.active&&!sameMap(lastFollowerField,local)){
         if(!translateFollower(lastFollowerField,local))followerPath.clear();
     }else if(lastFollowerField.active&&std::abs(local.pixelX-lastFollowerField.pixelX)+std::abs(local.pixelY-lastFollowerField.pixelY)>32)followerPath.clear();
     const bool allowed=followOn&&local.follower&&ownStarter()&&!(avatarFlags&0x1e)&&!localCamp.state.id;
@@ -49,16 +51,22 @@ void updateFollower(){
     lastFollowerField=local;
 }
 uint32_t interactWithFollower(){
-    if(!followOn||!local.follower||!local.followerVisible||localCamp.state.id||fieldUiBusy()||noticeAllocation||!safeStory()||now<petUntil)return 0;
+    if(fieldUiBusy()||noticeAllocation||!safeStory()||now<petUntil||campPending)return 0;
     constexpr int dx[]{0,0,0,-1,1},dy[]{0,1,-1,0,0};const unsigned face=std::clamp(unsigned(local.facing),1u,4u);
-    if(std::abs(local.followerX-(local.pixelX+dx[face]*16))>4||std::abs(local.followerY-(local.pixelY+dy[face]*16))>4)return 0;
-    // A native NPC sharing that tile retains its original interaction.
-    for(unsigned i=0;i<16;++i){const auto o=0x02036e38+36*i;if((r32(o)&1)&&!(r32(o)&0x2000)&&s16(o+16)-7==local.followerX/16&&s16(o+18)-7==local.followerY/16)return 0;}
+    const int targetX=local.pixelX+dx[face]*16,targetY=local.pixelY+dy[face]*16;
+    // Native NPCs on the addressed tile retain their original interaction.
+    for(unsigned i=0;i<16;++i){const auto o=0x02036e38+36*i;if((r32(o)&1)&&!(r32(o)&0x2000)&&s16(o+16)-7==(targetX+8)/16&&s16(o+18)-7==(targetY+8)/16)return 0;}
+    const bool atCamp=localCamp.state.id!=0;
+    const int member=atCamp?campInteractionTarget(localCamp.state,local.pixelX,local.pixelY,face):-1;
+    if(atCamp){if(member<0)return 0;}
+    else if(!followOn||!local.follower||!local.followerVisible||std::abs(local.followerX-targetX)>4||std::abs(local.followerY-targetY)>4)return 0;
     const unsigned kind=petSequence%FollowerReactionCount+1;
     constexpr const char* text[]{"Your Pokemon looks happy to be with you!","Your Pokemon enjoys a gentle pat!","Your Pokemon hums happily!","Your Pokemon tilts its head curiously!","Your Pokemon perks up at your voice!","Your Pokemon seems to be wondering something!","Your Pokemon gives you a cheerful smile!","Your Pokemon bounces happily!","Your Pokemon stamps its feet!","Your Pokemon watches quietly.","Your Pokemon lets out a little sigh.","Your Pokemon opens its mouth playfully!"};
     const auto script=makeFieldNoticeScript(text[kind-1]);if(!script)return 0;
-    ++petSequence;petKind=uint8_t(kind);petUntil=now+3*followerEmoteFrames(kind);
-    callGuest(gameAddress(0x08071df0),local.follower,0);return script;
+    ++petSequence;petKind=atCamp?0:uint8_t(kind);petUntil=now+3*followerEmoteFrames(kind);
+    const auto species=atCamp?localCamp.state.party[member].species:local.follower;
+    if(atCamp){const auto& p=localCamp.state.party[member];localCamp.interact(unsigned(member),movementFacing(local.pixelX-p.x,local.pixelY-p.y,p.facing),uint8_t(kind),3*followerEmoteFrames(kind));}
+    callGuest(gameAddress(0x08071df0),species,0);return script;
 }
 void drawFollowerEffect(unsigned sheet,int pattern,int x,int y){
     if(pattern<0||sheet>=followerEffects.size())return;
@@ -72,27 +80,38 @@ void drawFollowerEffect(unsigned sheet,int pattern,int x,int y){
         const auto color=uint16_t(((rgba&255)>>3)|((((rgba>>8)&255)>>3)<<5)|((((rgba>>16)&255)>>3)<<10));hostPixel(x+(xx-cell/2)/scale,y+(yy-cell/2)/scale,color,rgba);
     }
 }
-void drawCompanion(uint8_t* rgb,unsigned w,unsigned h,const PlayerState& p,unsigned slot,int dx,int dy){
-    if(slot>=MaxRoomPlayers)return;auto& visual=followerVisuals[slot];
-    if(visual.pose.identity!=p.identity)visual={};
-    visual.update(p,followOn&&p.follower&&p.followerVisible&&!campingSlot(slot),now);
-    if(visual.phase==FollowerVisual::Hidden||!sameScene(local,visual.pose))return;
-    const auto& pose=visual.pose;const int x=pose.followerX+dx+8,y=pose.followerY+dy;
-    drawingKey=spriteKey(pose.elevation,y+16,16+slot);
-    // Effect pixels win the same object's overlap; native UI still wins depth.
-    if(visual.phase==FollowerVisual::Arriving||visual.phase==FollowerVisual::Leaving)drawFollowerEffect(0,followerBallPattern(visual.phase==FollowerVisual::Leaving,visual.frame(now)),x,y+4);
-    struct Emote {uint16_t sequence=0;uint64_t began=0,identity=0;};static std::array<Emote,MaxRoomPlayers> emotes;
-    auto& emote=emotes[slot];if(p.followerEmote&&(emote.sequence!=p.followerEmoteSequence||emote.identity!=p.identity))emote={p.followerEmoteSequence,now,p.identity};
-    if(p.followerEmote&&visual.phase==FollowerVisual::Present){
-        const unsigned f=unsigned((now-emote.began)/3);int top=y;
+void drawPokemonReaction(const PlayerState& pose,unsigned kind,unsigned f,int x,int y){
+    int top=y;
         if(const auto* sheet=followerSheet(pose.follower,pose.followerShiny)){
             const unsigned row=followerRow(pose.followerFacing),frame=pose.followerFrame%4;int first=sheet->cellH;
             for(int yy=0;yy<sheet->cellH&&first==sheet->cellH;++yy)for(int xx=0;xx<sheet->cellW;++xx)if(sheet->image.pixels[(row*sheet->cellH+yy)*sheet->image.width+frame*sheet->cellW+xx]>>24){first=yy;break;}
             top=y+15-sheet->feet[row*4+frame]+first;
         }
-        if(f<followerEmoteFrames(p.followerEmote))followerEmoteBounds.push_back({x-8,top-25,24,25});
-        drawFollowerEffect(followerEmoteSheet(p.followerEmote),followerEmotePattern(p.followerEmote,f),x+3,top-3+(f<3?(-9+int(f)*3)/2:0));
-    }
+        if(f<followerEmoteFrames(kind))followerEmoteBounds.push_back({x-8,top-25,24,25});
+        drawFollowerEffect(followerEmoteSheet(kind),followerEmotePattern(kind,f),x+3,top-3+(f<3?(-9+int(f)*3)/2:0));
+}
+void drawCampReaction(const CampMon& mon,const PlayerState& pose,unsigned slot,unsigned member,uint32_t camp,int x,int y){
+    if(!mon.emote||slot>=MaxRoomPlayers||member>=6)return;
+    struct Stamp {uint32_t camp=0;uint16_t sequence=0;uint64_t began=0;};
+    static std::array<std::array<Stamp,6>,MaxRoomPlayers> stamps;
+    auto& stamp=stamps[slot][member];if(stamp.camp!=camp||stamp.sequence!=mon.emoteSequence)stamp={camp,mon.emoteSequence,now};
+    const unsigned frame=unsigned((now-stamp.began)/3);drawPokemonReaction(pose,mon.emote,frame,x,y);
+#ifdef FR_TEST_HARNESS
+    static std::ofstream trace(diagnosticPath.parent_path()/"camp-emotes.csv");trace<<now<<','<<slot<<','<<member<<','<<unsigned(mon.emote)<<','<<mon.emoteSequence<<','<<frame<<','<<followerEmotePattern(mon.emote,frame)<<'\n';if(now%15==0)trace.flush();
+#endif
+}
+void drawCompanion(uint8_t* rgb,unsigned w,unsigned h,const PlayerState& p,unsigned slot,int dx,int dy){
+    if(slot>=MaxRoomPlayers)return;auto& visual=followerVisuals[slot];
+    if(visual.pose.identity!=p.identity)visual={};
+    visual.update(p,followOn&&p.follower&&p.followerVisible&&!campingSlot(slot),now);
+    if(visual.phase==FollowerVisual::Hidden||!sameScene(local,visual.pose))return;
+    const auto& pose=visual.pose;const int x=pose.followerX+dx+8,groundY=pose.followerY+dy,y=groundY+pose.followerOffsetY;
+    drawingKey=spriteKey(pose.elevation,groundY+16,16+slot);
+    // Effect pixels win the same object's overlap; native UI still wins depth.
+    if(visual.phase==FollowerVisual::Arriving||visual.phase==FollowerVisual::Leaving)drawFollowerEffect(0,followerBallPattern(visual.phase==FollowerVisual::Leaving,visual.frame(now)),x,y+4);
+    struct Emote {uint16_t sequence=0;uint64_t began=0,identity=0;};static std::array<Emote,MaxRoomPlayers> emotes;
+    auto& emote=emotes[slot];if(p.followerEmote&&(emote.sequence!=p.followerEmoteSequence||emote.identity!=p.identity))emote={p.followerEmoteSequence,now,p.identity};
+    if(p.followerEmote&&visual.phase==FollowerVisual::Present)drawPokemonReaction(pose,p.followerEmote,unsigned((now-emote.began)/3),x,y);
 #ifdef FR_TEST_HARNESS
     if(slot==roomSlot){static std::ofstream trace(diagnosticPath.parent_path()/"follower-effects.csv");trace<<now<<','<<unsigned(p.mapGroup)<<','<<unsigned(p.mapNumber)<<','<<visual.phase<<','<<visual.frame(now)<<','<<p.followerVisible<<','<<p.follower<<','<<p.followerShiny<<','<<p.followerToken<<','<<unsigned(p.followerEmote)<<','<<p.followerEmoteSequence<<','<<p.followerX<<','<<p.followerY<<'\n';if(now%15==0)trace.flush();}
 #endif
