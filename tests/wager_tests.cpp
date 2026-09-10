@@ -34,6 +34,7 @@ int main(){try{
  fr::replaceText(heldFile,"new");std::string oldText;oldReader>>oldText;check(oldText=="old","Atomic replacement preserves an open reader's inode");
  {std::ifstream newReader(heldFile);std::string text;newReader>>text;check(text=="new","New readers see the committed account");}
 #endif
+ WagerBook manual;manual.manualSaving(true);manual.open(folder/"manual.cfg");auto temporary=sample();manual.create(temporary);deposit(manual,temporary);check(!std::filesystem::exists(folder/"manual.cfg"),"Manual wagers must not save automatically");manual.save();WagerBook manualResume;manualResume.open(folder/"manual.cfg");check(manualResume.find(temporary.id)&&manualResume.find(temporary.id)->credit(0)==100,"Manual wager save retains refundable deposits");
  WagerBook b;b.open(folder/"ledger.cfg");auto w=sample();b.create(w);
  check(!b.event(randomId(),w.id,1,1),"Other trainers cannot authorize a deposit");check(!b.event(w.players[0],w.id,3,1),"No result before native battle");
  check(b.event(w.players[0],w.id,1,1)&&b.event(w.players[0],w.id,1,1),"Duplicate deposit acknowledgement is idempotent");check(b.find(w.id)->phase==WagerPhase::Reserving,"One deposit does not open cable");b.event(w.players[1],w.id,1,1);check(b.find(w.id)->phase==WagerPhase::Ready,"Both deposits enable cable");

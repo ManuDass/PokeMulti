@@ -91,7 +91,7 @@ std::vector<PlayerState> releasePoses(){std::vector<PlayerState> out;for(const a
     auto i=releaseMotion.find(m.id);PlayerState p=i==releaseMotion.end()?PlayerState{}:i->second.sample(clockMs());
     // Durable, resting Pokemon remain visible even when their pose has not
     // changed for longer than the live-player timeline's disconnect timeout.
-    if(!p.active){p.active=true;p.mapGroup=m.position.group;p.mapNumber=m.position.map;p.elevation=m.position.elevation;p.x=m.position.x;p.y=m.position.y;p.pixelX=m.pixelX;p.pixelY=m.pixelY;p.follower=m.pokemon.species;p.followerFacing=m.facing;p.followerFrame=m.frame;}
+    if(!p.active){p.active=true;p.mapGroup=m.position.group;p.mapNumber=m.position.map;p.elevation=m.position.elevation;p.x=m.position.x;p.y=m.position.y;p.pixelX=m.pixelX;p.pixelY=m.pixelY;p.follower=m.pokemon.species;p.followerShiny=isShiny(m.pokemon.personality,m.pokemon.trainerId);p.followerFacing=m.facing;p.followerFrame=m.frame;}
     if(sameScene(local,p))out.push_back(p);
 }return out;}
 std::vector<ReleasePoint> releaseReservations(const std::vector<ReleasedMon>& population,const std::string& except){std::vector<ReleasePoint> occupied;
@@ -140,18 +140,12 @@ bool advanceRelease(ReleasedMon& m,unsigned elapsed,const std::vector<ReleasedMo
     if(m.pixelX==target.x*16&&m.pixelY==target.y*16){m.position=target;++travel.index;}
     return true;
 }
-void saveReleaseGame(){
-    // Match the original save dialog's preparation. TrySavingData serializes
-    // party/objects, but does not refresh the field's saved tile window itself.
-    prepareNativeFieldSave();
-    if(callGuest(gameAddress(0x080da364),0,0,0,0,0,20000000)!=1)throw std::runtime_error("Could not save the Pokemon release transaction");
-}
 void updateReleases(){
     if(!room||!bus())return;loadReleases();if(local.active&&!replaying())lastReleaseField=local;
     if(releaseRestored&&safeWallet()){releaseRestored=false;std::erase_if(pendingReleases,[](const auto& p){return !p.saved&&stillOwnReleased(p.mon.pokemon);});storePendingReleases();}
     if(releaseSaving){if(bus()->save().dirty())return;for(auto& p:pendingReleases)p.saved=1;releaseSaving=false;storePendingReleases();}
     if(!releaseRestored&&safeWallet()&&std::any_of(pendingReleases.begin(),pendingReleases.end(),[](const auto& p){return !p.saved;})){
-        saveReleaseGame();releaseSaving=true;return;}
+        for(auto& p:pendingReleases)p.saved=1;storePendingReleases();}
     if(now>=lastReleaseRetry+60){lastReleaseRetry=now;for(auto i=pendingReleases.begin();i!=pendingReleases.end();){if(!i->saved){++i;continue;}const bool accepted=roomState.connected?room->offerReleased(i->mon):soloReleases.offer(i->mon);if(accepted){i=pendingReleases.erase(i);storePendingReleases();}else{releaseMessage="Released Pokemon is waiting for the room to accept it.";++i;}}}
     if(!releaseBattleId.empty()){
         const bool battle=(r32(0x030030f4)&~1u)==gameAddress(0x08011100);releaseBattleEntered|=battle;
@@ -160,9 +154,9 @@ void updateReleases(){
             const auto population=releasePopulation();const auto found=std::find_if(population.begin(),population.end(),[](const auto& m){return m.id==releaseBattleId;});
             const bool ownClaim=found!=population.end()&&found->phase==ReleasePhase::Battle&&found->claimant==room->id();
             if(ownClaim&&!releaseBattleEntered)releaseBattleCaught=stillOwnReleased(found->pokemon,true);
-            // Commit a completed native capture even if the room disconnected.
-            // The durable receipt can settle its reserved host claim on rejoin.
-            if(releaseBattleCaught&&!releaseBattleSaving){saveReleaseGame();releaseBattleSaving=true;return;}
+            // Resolve the live capture claim. The next manual world save
+            // persists the population alongside the trainer and receipt.
+
             if(releaseBattleSaving&&bus()->save().dirty())return;
             if(ownClaim){
                 if(roomState.connected)room->finishReleased(releaseBattleId,releaseBattleCaught);else soloReleases.finish(releaseBattleId,room->id(),releaseBattleCaught);
@@ -176,7 +170,7 @@ void updateReleases(){
         if(roomState.connected)room->advanceReleased(changes);else {for(const auto& m:changes){const auto* old=soloReleases.find(m.id);soloReleases.advance(m,old&&old->phase!=m.phase);}if(!changes.empty()&&now%120<6)soloReleases.flush();}
     }
     population=releasePopulation();if(roomState.connected&&roomState.hosting)population=room->status().released;
-    for(const auto& m:population){PlayerState p;p.active=m.phase!=ReleasePhase::Queued&&m.phase!=ReleasePhase::Battle&&m.phase!=ReleasePhase::Caught;p.mapGroup=m.position.group;p.mapNumber=m.position.map;p.elevation=m.position.elevation;p.x=m.position.x;p.y=m.position.y;p.pixelX=m.pixelX;p.pixelY=m.pixelY;p.follower=m.pokemon.species;p.followerFacing=m.facing;p.followerFrame=m.frame;p.sequence=m.revision;p.sampleTime=uint32_t(clockMs());p.identity=std::stoull(m.id.substr(0,16),nullptr,16);
+    for(const auto& m:population){PlayerState p;p.active=m.phase!=ReleasePhase::Queued&&m.phase!=ReleasePhase::Battle&&m.phase!=ReleasePhase::Caught;p.mapGroup=m.position.group;p.mapNumber=m.position.map;p.elevation=m.position.elevation;p.x=m.position.x;p.y=m.position.y;p.pixelX=m.pixelX;p.pixelY=m.pixelY;p.follower=m.pokemon.species;p.followerShiny=isShiny(m.pokemon.personality,m.pokemon.trainerId);p.followerFacing=m.facing;p.followerFrame=m.frame;p.sequence=m.revision;p.sampleTime=uint32_t(clockMs());p.identity=std::stoull(m.id.substr(0,16),nullptr,16);
         if(m.phase==ReleasePhase::Hello||m.phase==ReleasePhase::Goodbye){p.offsetY=int8_t(-std::max(0,8-std::abs(18-int(m.tick))*8/18));const unsigned phase=unsigned(m.phase);if(m.tick<30&&heardRelease[m.id]!=phase&&sameScene(local,p)){callGuest(gameAddress(0x08071df0),m.pokemon.species,0);heardRelease[m.id]=phase;}}
         releaseMotion[m.id].push(p,clockMs());
     }

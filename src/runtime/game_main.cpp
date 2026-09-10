@@ -103,6 +103,9 @@ void testRender(uint8_t* rgb,uint32_t w,uint32_t h){
     fr::game::render(rgb,w,h);
     if(testReport){auto* memory=gbarecomp::active_bus();const auto q=memory->read8(0x0203adfa);const auto playback=memory->read32(0x03005e88);
         if(q==2||q==3||playback==1||playback==3){static std::ofstream recap(testProfile/"recap.csv");size_t changed=0;for(size_t i=0;i<before.size();++i)if(before[i]!=rgb[i])++changed;recap<<testFrame<<','<<unsigned(q)<<','<<playback<<','<<changed<<','<<unsigned(memory->read8(0x02024029))<<'\n';recap.flush();}}
+    if(testReport){auto* memory=gbarecomp::active_bus();const unsigned active=memory->read8(0x02037abf)&0x80,amount=(memory->read16(0x02037abc)>>6)&31;
+        const bool black=std::all_of(before.begin(),before.end(),[](uint8_t c){return c==0;});
+        if(active||amount||black){size_t changes=0;for(size_t i=0;i<before.size();++i)changes+=before[i]!=rgb[i];static std::ofstream fades(testProfile/"fade-overlay.csv");fades<<testFrame<<','<<active<<','<<amount<<','<<black<<','<<changes<<'\n';if(testFrame%15==0)fades.flush();}}
     if(testReport&&testFrame%60==0){
         size_t changed=0;for(size_t i=0;i<before.size();i+=3)if(before[i]!=rgb[i]||before[i+1]!=rgb[i+1]||before[i+2]!=rgb[i+2])++changed;
         std::ofstream report(testProfile/"overlay-check.txt");
@@ -243,6 +246,9 @@ int gameMain(int argc, wchar_t** argv) {
 #endif
                 profilePath=worldPath/"players"/identity/"runtime";savePath=profilePath/"trainer.sav";
                 fr::WorldPlayers players(fr::loadWorld(worldPath));const auto checkpoint=players.load(identity);if(!checkpoint.empty())fr::restoreCheckpoint(profilePath,checkpoint);
+                else for(const auto* name:{"trainer.sav","wager-wallet.cfg","released-pending.cfg","released-battle.cfg"}){
+                    const auto scratch=profilePath/name;if(std::filesystem::exists(scratch))std::filesystem::rename(scratch,profilePath/(std::string(name)+".unsaved-"+fr::worldRandomId()));
+                }
                 if(onlineMode=="host")online.host(uint16_t(roomPort),roomKey,uint8_t(rewardPolicy),false,uint8_t(capacity));else online.playLocalWorld();
             }else{
                 online.join(joinAddress,uint16_t(roomPort),roomKey);

@@ -619,7 +619,7 @@ void Launcher::playGame(int mode) {
     CloseHandle(process.hThread);gameProcess_=process.hProcess;gameMode_=mode;gameFailed_=false;
     log_.write("RUNTIME", "Started game: "+narrow(exe.wstring()));
     ShowWindow(window_,SW_HIDE);
-    status_=L"World open. Progress checkpoints automatically; the host can save everyone from the game menu.";layout();
+    status_=L"World open. Saving is manual; the host saves everyone from the game menu.";layout();
 }
 
 void Launcher::fullscreen() {

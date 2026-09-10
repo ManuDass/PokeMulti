@@ -48,8 +48,11 @@ ReleasedMon decodeReleased(const std::string&);
 class ReleaseBook {
     std::filesystem::path path;
     std::vector<ReleasedMon> entries;
-    void persist()const;
+    bool manual=false;
+    void persist(bool force=false)const;
 public:
+    void manualSaving(bool enabled){manual=enabled;}
+    void save()const{persist(true);}
     void open(const std::filesystem::path&);
     const std::vector<ReleasedMon>& records()const{return entries;}
     const ReleasedMon* find(const std::string&)const;

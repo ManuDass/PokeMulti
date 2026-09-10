@@ -324,7 +324,7 @@ struct Panel::Impl {
             if(status.wager.active()){
                 ImGui::Separator();ImGui::Text("Wager: P%u each",status.wager.stake);
                 const auto phase=status.wager.phase;
-                paragraph(phase==WagerPhase::Reserving?"Saving deposits...":phase==WagerPhase::Ready?"Deposits ready. Preparing your battle.":phase==WagerPhase::Battling?"Battle in progress":phase==WagerPhase::Refund?"Refund pending in the overworld":"Battle complete. Payout saves in the field");
+                paragraph(phase==WagerPhase::Reserving?"Reserving deposits...":phase==WagerPhase::Ready?"Deposits ready. Preparing your battle.":phase==WagerPhase::Battling?"Battle in progress":phase==WagerPhase::Refund?"Refund pending in the overworld":"Battle complete. Payout arrives in the field");
                 if((phase==WagerPhase::Reserving||phase==WagerPhase::Ready)&&ImGui::SmallButton("Cancel wager"))guard([&]{session.wagerEvent(status.wager.id,5);});
             }
             if(!game::walletNotice().empty()&&(!status.wager.active()||status.wager.terminal()))paragraph(game::walletNotice().c_str());
@@ -332,7 +332,7 @@ struct Panel::Impl {
                 if(!status.wager.active())paragraph("Battles start in the field. Trading uses the upstairs Cable Club.");
                 if(ImGui::Button("Disconnect cable",{-1,26}))guard([&]{session.disconnectCable();});
             }
-            ImGui::Spacing();ImGui::BeginDisabled(busy());if(ImGui::Button(status.managedWorld?"Save & exit world":"Leave room",{-1,26})){if(status.managedWorld){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}else async([this]{session.stop();});}ImGui::EndDisabled();
+            ImGui::Spacing();ImGui::BeginDisabled(busy());if(ImGui::Button(status.managedWorld?"Exit world":"Leave room",{-1,26})){if(status.managedWorld){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}else async([this]{session.stop();});}ImGui::EndDisabled();
         }
         connectionDetails(status);
     }
@@ -453,8 +453,8 @@ struct Panel::Impl {
         if(changed)guard([&]{atomicText(data/"world.cfg",std::to_string(follow)+" "+std::to_string(wild)+"\n");});
         ImGui::Spacing();heading("DISPLAY");
         if(ImGui::Button("Focus on the game",{-1,30})){sidebar=false;gameFocus=true;}
-        if(ImGui::CollapsingHeader("Keyboard controls"))paragraph("WASD / Arrows   Move\nX             Confirm / Nearby battle\nZ             Cancel / Run (with shoes)\nEnter     Game menu / Save\nR Shift   Select\nC / V      L / R\nG             Camp / Pack up\nT             Trade with facing trainer\nChat       Click input, Enter to send\nEsc        Return to game\nF2           Online sidebar\nF11        Fullscreen\nF12        Screenshot");
-        heading("WORLD SAVE");paragraph(status.managedWorld?"Progress checkpoints automatically in the host world. The host can save everyone from the game menu.":"Save from the game's Start menu.");
+        if(ImGui::CollapsingHeader("Keyboard controls"))paragraph("WASD / Arrows   Move\nX             Talk / Pet / Nearby battle\nZ             Cancel / Run (with shoes)\nEnter     Game menu / Save\nR Shift   Select\nC / V      L / R\nG             Camp / Pack up\nT             Trade with facing trainer\nChat       Click input, Enter to send\nEsc        Return to game\nF2           Online sidebar\nF11        Fullscreen\nF12        Screenshot");
+        heading("WORLD SAVE");paragraph(status.managedWorld?"Saving is manual. The host saves everyone from the game menu. Save before leaving.":"Save from the game's Start menu.");
         if(ImGui::Button("End session",{-1,30})){SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}
     }
     void chatDock(const Status& status,ImVec2 pos,ImVec2 size){
@@ -537,13 +537,13 @@ struct Panel::Impl {
         viewportW=float(240*scale);viewportH=float(160*scale);viewportX=std::floor((left+right-viewportW)/2);viewportY=std::floor(contentTop+(availH-viewportH)/2);
         d->AddRectFilled({viewportX-5,viewportY-5},{viewportX+viewportW+5,viewportY+viewportH+5},IM_COL32(7,11,15,255),4);
         d->AddImage(static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(texture)),{viewportX,viewportY},{viewportX+viewportW,viewportY+viewportH});
-        d->AddCircleFilled({left+22,gameBottom-21},3.5f,mint);label(mono,11,{left+34,gameBottom-27},IM_COL32(154,170,163,255),game::camping()?"CAMPING":status.managedWorld?"WORLD SAVE":"LOCAL SAVE");
+        d->AddCircleFilled({left+22,gameBottom-21},3.5f,mint);label(mono,11,{left+34,gameBottom-27},IM_COL32(154,170,163,255),game::camping()?"CAMPING":status.managedWorld?"MANUAL SAVE":"LOCAL SAVE");
         const auto releasedInfo=game::releaseNotice();const auto campInfo=releasedInfo.empty()?game::campNotice():releasedInfo;if(!campInfo.empty()){
             d->PushClipRect({left+145,gameBottom-30},{right-12,gameBottom-6},true);label(regular,14,{left+145,gameBottom-29},IM_COL32(181,194,187,255),campInfo);d->PopClipRect();
             ImGui::SetCursorPos({left+140,gameBottom-31});ImGui::InvisibleButton("Camp status",{right-left-152,24});if(ImGui::IsItemHovered())ImGui::SetTooltip("%s",campInfo.c_str());
         }
 
-        label(mono,12,{left,size.y-40},IM_COL32(173,180,184,255),"WASD Move  X Battle / A  Z Back  T Trade  ENTER Menu  G Camp");
+        label(mono,12,{left,size.y-40},IM_COL32(173,180,184,255),"WASD Move  X Talk / Pet  Z Back  T Trade  ENTER Menu  G Camp");
         label(mono,12,{size.x-250,size.y-40},IM_COL32(173,180,184,255),gameFocus?"GAME CONTROLS ACTIVE":"CLICK GAME TO RESUME");
         for(auto m=status.chat.rbegin();m!=status.chat.rend();++m)if(m->kind&&chatClock()-m->receivedAt<6000){
             d->AddRectFilled({left+12,top+9},{right-155,top+36},IM_COL32(18,24,32,255));d->PushClipRect({left+12,top+10},{right-155,top+38},true);

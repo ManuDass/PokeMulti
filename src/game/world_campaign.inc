@@ -35,15 +35,7 @@ void applyCampaignAccess(){
     if(campaignValue(0x820)){minimum(0x2e,1);minimum(0x406c,1);}
     bool viridian=true;for(uint16_t id=0x821;id<=0x826;++id)viridian&=campaignValue(id)!=0;
     if(viridian)minimum(0x405a,1);
-    if(changed){campaignSaveRequested=true;refreshStoryObjects();callGuest(gameAddress(0x08069c38));callGuest(gameAddress(0x0805a684));}
-}
-void saveCampaignProgress(){
-    if(campaignSaving){if(!bus()->save().dirty())campaignSaving=false;else return;}
-    if(!campaignSaveRequested||!storyApplied||!safeWallet()||encounterToken||!pendingStory.empty()||roomState.wager.active()||walletPendingSave)return;
-    prepareNativeFieldSave();
-    if(callGuest(gameAddress(0x080da364),0,0,0,0,0,20000000)!=1)throw std::runtime_error("The native campaign save failed. Progress remains in memory.");
-    campaignSaving=true;campaignSaveRequested=false;
-    std::printf("CAMPAIGN_NATIVE_SAVE\n");
+    if(changed){refreshStoryObjects();callGuest(gameAddress(0x08069c38));callGuest(gameAddress(0x0805a684));}
 }
 // FlagGet is overridden only for world travel checks. The trainer card,
 // obedience calculations, Gym scripts, payouts and League remain personal.

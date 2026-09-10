@@ -23,8 +23,11 @@ struct Wager {
 class WagerBook {
     std::filesystem::path path;
     std::vector<Wager> records;
-    void persist()const;
+    bool manual=false;
+    void persist(bool force=false)const;
 public:
+    void manualSaving(bool enabled){manual=enabled;}
+    void save()const{persist(true);}
     void open(const std::filesystem::path& file);
     Wager forPlayer(const std::string& player)const;
     const Wager* find(const std::string& id)const;

@@ -39,6 +39,7 @@ void string(Bytes& b,const std::string& v){if(v.size()>128)throw std::runtime_er
 struct Reader {
     const Bytes& b;size_t p=0;
     unsigned u8(){if(p>=b.size())throw std::runtime_error("Truncated room packet");return b[p++];}
+    bool boolean(){const auto v=u8();if(v>1)throw std::runtime_error("Invalid boolean in room packet");return v!=0;}
     unsigned u16(){auto a=u8();return a|(u8()<<8);}
     uint32_t u32(){auto a=u16();return a|(u16()<<16);}
     std::string str(){size_t n=u8();if(n>128||n>b.size()-p)throw std::runtime_error("Invalid room text");std::string s(b.begin()+p,b.begin()+p+n);p+=n;return s;}
@@ -51,7 +52,7 @@ void player(Bytes& b,const game::PlayerState& p){
     word(b,uint16_t(p.x));word(b,uint16_t(p.y));word(b,p.follower);
     word(b,uint16_t(p.pixelX));word(b,uint16_t(p.pixelY));word(b,uint16_t(p.followerX));word(b,uint16_t(p.followerY));
     byte(b,uint8_t(p.offsetX));byte(b,uint8_t(p.offsetY));byte(b,p.spriteFrame);byte(b,p.flip);byte(b,p.followerVisible?1:0);byte(b,p.followerFacing);byte(b,p.followerFrame);
-    dword(b,p.sequence);dword(b,p.sampleTime);byte(b,p.partyCount);byte(b,p.partyEggs);
+    dword(b,p.sequence);dword(b,p.sampleTime);byte(b,p.partyCount);byte(b,p.partyEggs);byte(b,p.followerShiny);dword(b,p.followerToken);word(b,p.followerEmoteSequence);byte(b,p.followerEmote);
 }
 game::PlayerState player(Reader& r){
     game::PlayerState p;const auto active=r.u8();p.active=active==1;
@@ -59,7 +60,7 @@ game::PlayerState player(Reader& r){
     p.x=int16_t(r.u16());p.y=int16_t(r.u16());p.follower=uint16_t(r.u16());
     p.pixelX=int16_t(r.u16());p.pixelY=int16_t(r.u16());p.followerX=int16_t(r.u16());p.followerY=int16_t(r.u16());
     p.offsetX=int8_t(r.u8());p.offsetY=int8_t(r.u8());p.spriteFrame=uint8_t(r.u8());p.flip=uint8_t(r.u8());const auto visible=r.u8();p.followerVisible=visible==1;p.followerFacing=uint8_t(r.u8());p.followerFrame=uint8_t(r.u8());
-    p.sequence=r.u32();p.sampleTime=r.u32();p.partyCount=uint8_t(r.u8());p.partyEggs=uint8_t(r.u8());
+    p.sequence=r.u32();p.sampleTime=r.u32();p.partyCount=uint8_t(r.u8());p.partyEggs=uint8_t(r.u8());p.followerShiny=r.boolean();p.followerToken=r.u32();p.followerEmoteSequence=uint16_t(r.u16());p.followerEmote=uint8_t(r.u8());if(p.followerEmote>3)throw std::runtime_error("Invalid follower emote");
     if(p.pixelX< -32||p.pixelY< -32||p.pixelX>8224||p.pixelY>8224||p.followerX< -32||p.followerY< -32||p.followerX>8224||p.followerY>8224||std::abs(int(p.offsetX))>64||std::abs(int(p.offsetY))>64||p.spriteFrame>=64||p.flip>3||visible>1||p.followerFacing<1||p.followerFacing>4||p.followerFrame>3)
         throw std::runtime_error("Invalid sprite pose");
     if(p.partyCount>6 || (p.partyEggs>>p.partyCount)!=0 || active>1 || p.elevation>15 || p.facing<1 || p.facing>4 || p.graphics>=152 || p.x<0 || p.y<0 || p.x>511 || p.y>511 || p.follower>411)
@@ -68,18 +69,18 @@ game::PlayerState player(Reader& r){
 }
 void npc(Bytes& b,const NpcState& n){byte(b,n.localId);byte(b,n.owner);byte(b,n.anim);byte(b,n.command);word(b,uint16_t(n.oldX));word(b,uint16_t(n.oldY));byte(b,n.visible);dword(b,n.generation);player(b,n.pose);}
 NpcState npc(Reader& r){NpcState n;n.localId=uint8_t(r.u8());n.owner=uint8_t(r.u8());n.anim=uint8_t(r.u8());n.command=uint8_t(r.u8());n.oldX=int16_t(r.u16());n.oldY=int16_t(r.u16());auto visible=r.u8();n.visible=visible!=0;n.generation=r.u32();n.pose=player(r);if(visible>1||(n.owner>=MaxRoomPlayers&&n.owner!=255))throw std::runtime_error("Invalid NPC owner");return n;}
-void wildState(Bytes& b,const WildState& w){dword(b,w.id);word(b,w.species);byte(b,w.level);byte(b,w.elevation);word(b,uint16_t(w.x));word(b,uint16_t(w.y));word(b,uint16_t(w.pixelX));word(b,uint16_t(w.pixelY));byte(b,w.facing);byte(b,w.frame);}
-WildState wildState(Reader& r){WildState w;w.id=r.u32();w.species=uint16_t(r.u16());w.level=uint8_t(r.u8());w.elevation=uint8_t(r.u8());w.x=int16_t(r.u16());w.y=int16_t(r.u16());w.pixelX=int16_t(r.u16());w.pixelY=int16_t(r.u16());w.facing=uint8_t(r.u8());w.frame=uint8_t(r.u8());return w;}
+void wildState(Bytes& b,const WildState& w){dword(b,w.id);word(b,w.species);byte(b,w.level);byte(b,w.elevation);word(b,uint16_t(w.x));word(b,uint16_t(w.y));word(b,uint16_t(w.pixelX));word(b,uint16_t(w.pixelY));byte(b,w.facing);byte(b,w.frame);byte(b,w.shiny);}
+WildState wildState(Reader& r){WildState w;w.id=r.u32();w.species=uint16_t(r.u16());w.level=uint8_t(r.u8());w.elevation=uint8_t(r.u8());w.x=int16_t(r.u16());w.y=int16_t(r.u16());w.pixelX=int16_t(r.u16());w.pixelY=int16_t(r.u16());w.facing=uint8_t(r.u8());w.frame=uint8_t(r.u8());w.shiny=r.boolean();return w;}
 void campState(Bytes& b,const game::CampState& c){
     dword(b,c.id);if(!c.id)return;dword(b,c.sequence);dword(b,c.sampleTime);dword(b,c.tick);byte(b,c.group);byte(b,c.map);byte(b,c.elevation);word(b,uint16_t(c.x));word(b,uint16_t(c.y));for(auto row:c.ground)word(b,row);byte(b,unsigned(c.party.size()));
-    for(const auto& p:c.party){word(b,p.species);word(b,uint16_t(p.x));word(b,uint16_t(p.y));byte(b,p.facing);byte(b,p.frame);byte(b,p.mood);}
+    for(const auto& p:c.party){word(b,p.species);word(b,uint16_t(p.x));word(b,uint16_t(p.y));byte(b,p.facing);byte(b,p.frame);byte(b,p.mood);byte(b,p.shiny);}
 }
 game::CampState campState(Reader& r){
     game::CampState c;c.id=r.u32();if(!c.id)return c;c.sequence=r.u32();c.sampleTime=r.u32();c.tick=r.u32();c.group=uint8_t(r.u8());c.map=uint8_t(r.u8());c.elevation=uint8_t(r.u8());c.x=int16_t(r.u16());c.y=int16_t(r.u16());for(auto& row:c.ground)row=uint16_t(r.u16());auto n=r.u8();if(n>6)throw std::runtime_error("Too many camp Pokemon");
-    while(n--){game::CampMon p;p.species=uint16_t(r.u16());p.x=int16_t(r.u16());p.y=int16_t(r.u16());p.facing=uint8_t(r.u8());p.frame=uint8_t(r.u8());p.mood=uint8_t(r.u8());c.party.push_back(p);}if(!game::validCamp(c))throw std::runtime_error("Invalid camp state");return c;
+    while(n--){game::CampMon p;p.species=uint16_t(r.u16());p.x=int16_t(r.u16());p.y=int16_t(r.u16());p.facing=uint8_t(r.u8());p.frame=uint8_t(r.u8());p.mood=uint8_t(r.u8());p.shiny=r.boolean();c.party.push_back(p);}if(!game::validCamp(c))throw std::runtime_error("Invalid camp state");return c;
 }
-void battleState(Bytes& b,const game::BattlePresence& fight){dword(b,fight.id);if(!fight.id)return;dword(b,fight.tick);byte(b,(fight.settled?1:0)|(fight.returning?2:0));player(b,fight.trainer);byte(b,unsigned(fight.mons.size()));for(const auto& m:fight.mons){byte(b,m.position);word(b,m.species);word(b,uint16_t(m.x));word(b,uint16_t(m.y));byte(b,m.facing);byte(b,m.visible);byte(b,m.frame);byte(b,m.walking);}}
-game::BattlePresence battleState(Reader& r){game::BattlePresence b;b.id=r.u32();if(!b.id)return b;b.tick=r.u32();auto flags=r.u8();if(flags>3)throw std::runtime_error("Invalid battle phase");b.settled=flags&1;b.returning=flags&2;b.trainer=player(r);auto n=r.u8();if(n>4)throw std::runtime_error("Too many battle actors");while(n--){game::BattleMon m;m.position=uint8_t(r.u8());m.species=uint16_t(r.u16());m.x=int16_t(r.u16());m.y=int16_t(r.u16());m.facing=uint8_t(r.u8());auto visible=r.u8();if(visible>1)throw std::runtime_error("Invalid battle visibility");m.visible=visible!=0;m.frame=uint8_t(r.u8());auto walking=r.u8();if(walking>1)throw std::runtime_error("Invalid battle walking state");m.walking=walking!=0;b.mons.push_back(m);}if(!game::validBattle(b))throw std::runtime_error("Invalid battle presentation");return b;}
+void battleState(Bytes& b,const game::BattlePresence& fight){dword(b,fight.id);if(!fight.id)return;dword(b,fight.tick);byte(b,(fight.settled?1:0)|(fight.returning?2:0));player(b,fight.trainer);byte(b,unsigned(fight.mons.size()));for(const auto& m:fight.mons){byte(b,m.position);word(b,m.species);word(b,uint16_t(m.x));word(b,uint16_t(m.y));byte(b,m.facing);byte(b,m.visible);byte(b,m.frame);byte(b,m.walking);byte(b,m.shiny);}}
+game::BattlePresence battleState(Reader& r){game::BattlePresence b;b.id=r.u32();if(!b.id)return b;b.tick=r.u32();auto flags=r.u8();if(flags>3)throw std::runtime_error("Invalid battle phase");b.settled=flags&1;b.returning=flags&2;b.trainer=player(r);auto n=r.u8();if(n>4)throw std::runtime_error("Too many battle actors");while(n--){game::BattleMon m;m.position=uint8_t(r.u8());m.species=uint16_t(r.u16());m.x=int16_t(r.u16());m.y=int16_t(r.u16());m.facing=uint8_t(r.u8());auto visible=r.u8();if(visible>1)throw std::runtime_error("Invalid battle visibility");m.visible=visible!=0;m.frame=uint8_t(r.u8());auto walking=r.u8();if(walking>1)throw std::runtime_error("Invalid battle walking state");m.walking=walking!=0;m.shiny=r.boolean();b.mons.push_back(m);}if(!game::validBattle(b))throw std::runtime_error("Invalid battle presentation");return b;}
 void worldReport(Bytes& b,const WorldReport& w){campState(b,w.camp);battleState(b,w.battle);byte(b,w.group);byte(b,w.map);byte(b,(w.field?1:0)|(w.started?2:0)|(w.wildEnabled?4:0));dword(b,w.sequence);byte(b,unsigned(w.npcs.size()));for(const auto& n:w.npcs)npc(b,n);byte(b,unsigned(w.wild.size()));for(const auto& m:w.wild)wildState(b,m);}
 WorldReport worldReport(Reader& r){WorldReport w;w.camp=campState(r);w.battle=battleState(r);w.group=uint8_t(r.u8());w.map=uint8_t(r.u8());const auto bits=r.u8();w.field=(bits&1)!=0;w.started=(bits&2)!=0;w.wildEnabled=(bits&4)!=0;w.sequence=r.u32();auto count=r.u8();if(bits>7||count>15)throw std::runtime_error("Invalid world report");while(count--)w.npcs.push_back(npc(r));count=r.u8();if(count>12)throw std::runtime_error("Too many wild Pokemon");while(count--)w.wild.push_back(wildState(r));if(!validWorldReport(w))throw std::runtime_error("Invalid world semantics");return w;}
 void storyValues(Bytes& b,const std::vector<game::StoryValue>& values){byte(b,unsigned(values.size()));for(auto v:values){word(b,v.id);word(b,v.value);dword(b,v.revision);}}
@@ -272,7 +273,7 @@ struct Session::Impl {
         Reader r{body};
         if(type==ShinyRate)throw std::runtime_error("Only the host can change the shiny rate.");
         if(type==PlayerCheckpoint){
-            if(from==0&&worldPlayers){const auto serial=r.u32();Bytes save(r.b.begin()+r.p,r.b.end());worldPlayers->commit(identity,save);current.checkpointAck=serial;return;}
+            if(from==0&&worldPlayers){const auto serial=r.u32();Bytes save(r.b.begin()+r.p,r.b.end());worldPlayers->commit(identity,save);campaign.save();wagers.save();releaseBook.save();current.checkpointAck=serial;return;}
             readCheckpoint(r,from);return;
         }
         if(type==DepartureEvent){auto pose=player(r);r.end();if(auto* p=peer(from)){
@@ -540,7 +541,7 @@ struct Session::Impl {
         if(rewards>game::AllRewardSharing)throw std::runtime_error("Invalid reward policy");
         shutdown();std::lock_guard lock(mutex);
         if(!textSafe(roomKey,64)||roomKey.size()<8)throw std::runtime_error("Use a room key of 8 to 64 characters.");
-        wallets={};invitationSequence=0;if(host)wagers.open(accountFolder.empty()?std::filesystem::path{}:accountFolder/"wagers-host.cfg");
+        wallets={};invitationSequence=0;wagers.manualSaving(bool(worldPlayers));releaseBook.manualSaving(bool(worldPlayers));campaign.manualSaving(bool(worldPlayers));if(host)wagers.open(accountFolder.empty()?std::filesystem::path{}:accountFolder/"wagers-host.cfg");
         releaseBroadcasts.clear();releaseReplies.clear();releaseFlushed=0;if(host)releaseBook.open(accountFolder.empty()?std::filesystem::path{}:accountFolder/"released-world.cfg");
         current={};joinRejected=false;
         if(host){

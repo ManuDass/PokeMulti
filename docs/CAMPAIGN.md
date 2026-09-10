@@ -37,7 +37,7 @@ Playing or hosting a selected world resumes `campaigns/active.cfg` inside that w
 
 Choose **New world** in the launcher for an independent adventure. Each world owns its campaign and separate per-trainer checkpoints. Guests receive their trainer from that world before the game boots; they cannot continue it offline when its host leaves. See [world storage and recovery](WORLDS.md).
 
-Native campaign changes, delivered rewards and newly earned personal trainer/Gym victories checkpoint through FireRed's original save routine at a safe field boundary, even if another trainer already supplied that campaign victory proof. Party, money, inventory and receipt flags are saved together. Saving waits through battles, scripts and cable/wager transactions. An existing native save gets a `.before-campaign.bak` copy before its first campaign application. Keep profile, native save and campaign files together. Ordinary progress also checkpoints automatically at safe field boundaries. The host can request a save for everyone from the original Save menu.
+Campaign changes and personal rewards update during play. They persist when the host explicitly saves the world, together with each trainer's party, money, inventory and receipt flags. Guest saves wait through battles, scripts and cable transactions. An existing native save gets a `.before-campaign.bak` copy before its first campaign application. Keep the whole world folder together. There are no periodic or campaign-triggered game saves, and closing a session does not start a save.
 
 ## Presentation
 

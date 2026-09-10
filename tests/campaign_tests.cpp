@@ -19,6 +19,7 @@ int main(){try{
     book.commit(story,"Leaf");require(book.snapshot().completed.size()==2,"Parcel has explicit collection and completion milestones");
     book.commit(story,"Leaf");require(book.snapshot().completed.size()==2,"Repeated reports cannot duplicate the journal");
     CampaignBook resumed;resumed.open(root);require(resumed.ready()&&resumed.snapshot().id==id&&resumed.snapshot().completed.size()==2,"Campaign must survive reopening independently of native saves");
+    const auto manualRoot=root/"manual";CampaignBook manual;manual.manualSaving(true);manual.open(manualRoot);manual.commit(story,"Leaf");CampaignBook unchanged;unchanged.open(manualRoot);require(!unchanged.ready(),"Manual campaign must not persist before Save");manual.save();CampaignBook savedManual;savedManual.open(manualRoot);require(savedManual.ready()&&savedManual.snapshot().completed.size()==2,"Manual Save persists shared story");
     auto none=resumed.baseline(0);require(std::any_of(none.begin(),none.end(),[](auto v){return v.id==0x4057&&v.value==2;}),"Changing reward policy cannot reset narrative progress");
     CampaignBook fresh;fresh.open(root,true);require(!fresh.ready()&&fresh.snapshot().id!=id&&std::filesystem::exists(root/"campaigns"/(id+".cfg")),"Starting another campaign preserves the previous file");
     for(const auto& r:storyRewardRules)if(r.essential)for(unsigned p=0;p<8;++p)require(shareReward(r,uint8_t(p)),"Quest access must survive every optional reward setting");

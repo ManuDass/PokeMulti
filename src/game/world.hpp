@@ -21,6 +21,10 @@ struct PlayerState {
     uint64_t identity=0; // receiver-local identity; not serialized
     uint8_t netSlot=255;
     uint8_t partyCount=0; // Occupied party slots, including Eggs and fainted Pokemon.
+    bool followerShiny=false; // Saved lead Pokemon identity; independent of room odds.
+    uint32_t followerToken=0; // Individual identity, including same-species party switches.
+    uint16_t followerEmoteSequence=0;
+    uint8_t followerEmote=0; // 0 none, 1 heart, 2 happy, 3 music.
     uint8_t partyEggs=0; // Bit i is set for an Egg in occupied slot i.
 };
 void initialize(FireRedRevision revision,const std::filesystem::path& diagnostics,const std::filesystem::path& saveFile={});

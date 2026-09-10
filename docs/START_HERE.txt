@@ -1,4 +1,4 @@
-POKEMULTI 0.26.4 - WINDOWS 10/11, 64-BIT
+POKEMULTI 0.26.5 - WINDOWS 10/11, 64-BIT
 
 1. Run PokeMulti-Setup.exe from the GitHub release and choose an install folder.
    Portable alternative: extract the entire versioned ZIP into a folder.
@@ -33,10 +33,9 @@ Click the chat input to type. Enter sends while chat is focused.
 Accepted trades use the existing upstairs Cable Club flow.
 
 SAVES
-Automatic checkpoints wait for a safe field boundary. The host's game Save
+Saving is manual. Save before leaving the world. The host's game Save
 menu also requests saves from everyone. Crash recovery uses the last completed
-checkpoint; unsaved in-battle actions may not survive. Save & exit world closes
-a session safely. Each world keeps personal teams, items and money separately.
+manual save. Exit world closes without creating a save. Each world keeps personal teams, items and money separately.
 Data is stored in %LOCALAPPDATA%\FireRedRecomp, outside this program folder.
 Back up that folder, including identity.cfg and identity.key, to keep your
 worlds and trainer identity. Do not send it as part of the program package.

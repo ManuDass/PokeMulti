@@ -1,4 +1,5 @@
 #include "game/world.hpp"
+#include "game/performance.hpp"
 #include "game/rom_layout.hpp"
 #include "game/shiny.hpp"
 #include <random>
@@ -12,6 +13,7 @@
 #include "game/battle_staging.hpp"
 #include "game/labels.hpp"
 #include "game/follower.hpp"
+#include "game/follower_effect.hpp"
 #include "game/follower_art.hpp"
 #include "game/presentation.hpp"
 #include "game/camp_outline.hpp"
@@ -57,9 +59,9 @@ std::array<MotionTimeline,MaxRoomPlayers> motion{};
 std::array<PlayerState,MaxRoomPlayers> lastRemoteField{};
 FollowerPath followerPath;
 uint32_t speciesNames=0;
-std::map<uint16_t,FollowerSheet> followerSheets;
+std::map<uint32_t,FollowerSheet> followerSheets;
 double clockMs(){return std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now().time_since_epoch()).count();}
-struct Wild {int x,y;uint16_t species;uint8_t level;uint64_t born;int oldX=0,oldY=0;uint64_t moved=0;uint32_t id=0;int16_t sharedX=0,sharedY=0;uint8_t facing=1;};
+struct Wild {int x,y;uint16_t species;uint8_t level;uint64_t born;int oldX=0,oldY=0;uint64_t moved=0;uint32_t id=0;int16_t sharedX=0,sharedY=0;uint8_t facing=1;bool shiny=false;};
 constexpr unsigned WildStepFrames=32;
 std::vector<Wild> wild;
 std::filesystem::path diagnosticPath;
@@ -170,7 +172,8 @@ void hostPixel(int x,int y,uint16_t color,uint32_t rgba=0){
     if(drawingKey<dest.key)dest={drawingKey,color,rgba};
 }
 bool sameMap(const PlayerState& a,const PlayerState& b){return a.active && b.active && a.mapGroup==b.mapGroup && a.mapNumber==b.mapNumber;}
-uint16_t leadSpecies(){
+uint16_t leadSpecies(bool& shiny,uint32_t& token){
+    shiny=false;token=0;
     if(r8(0x02024029)>6)return 0;
     constexpr const char* order[]={"GAEM","GAME","GEAM","GEMA","GMAE","GMEA","AGEM","AGME","AEGM","AEMG","AMGE","AMEG","EGAM","EGMA","EAGM","EAMG","EMGA","EMAG","MGAE","MGEA","MAGE","MAEG","MEGA","MEAG"};
     for(unsigned slot=0;slot<r8(0x02024029);++slot){
@@ -185,7 +188,7 @@ uint16_t leadSpecies(){
         while(order[personality%24][misc]!='M')++misc;
         if(data[misc*3+1]&0x40000000u)continue;
         const auto species=uint16_t(data[growth*3]);
-        if(species && species<=411)return species;
+        if(species && species<=411){shiny=isShiny(personality,r32(base+4));token=personality^(r32(base+4)*16777619u);return species;}
     }
     return 0;
 }
@@ -203,7 +206,7 @@ bool readPlayer(PlayerState& out){
     out.active=true;out.mapGroup=r8(save+4);out.mapNumber=r8(save+5);
     out.x=int16_t(s16(object+16)-7);out.y=int16_t(s16(object+18)-7);
     out.elevation=r8(object+11)&15;out.facing=r8(object+24)&15;out.graphics=r8(object+5);
-    avatarFlags=r8(0x02037078);out.follower=leadSpecies();
+    avatarFlags=r8(0x02037078);out.follower=leadSpecies(out.followerShiny,out.followerToken);
     const auto partyCount=r8(0x02024029);out.partyCount=partyCount<=6?partyCount:0;out.partyEggs=partyEggMask(out.partyCount);
     const uint32_t layout=r32(0x02036dfc);
     if(!validRom(layout,24) || out.x<0 || out.y<0 || out.x>=int(r32(layout)) || out.y>=int(r32(layout+4)) || out.facing<1 || out.facing>4)return false;
@@ -279,11 +282,12 @@ bool grass(int x,int y,uint8_t elevation){
 }
 PlayerState wildPose(const Wild& m){
     const auto elapsed=now>=m.moved?now-m.moved:0;const float t=std::min(1.f,float(elapsed)/WildStepFrames);
-    PlayerState p;p.active=true;p.mapGroup=local.mapGroup;p.mapNumber=local.mapNumber;p.elevation=local.elevation;p.x=int16_t(m.x);p.y=int16_t(m.y);p.follower=m.species;
+    PlayerState p;p.active=true;p.mapGroup=local.mapGroup;p.mapNumber=local.mapNumber;p.elevation=local.elevation;p.x=int16_t(m.x);p.y=int16_t(m.y);p.follower=m.species;p.followerShiny=m.shiny;
     p.pixelX=int16_t(std::lround((m.oldX+(m.x-m.oldX)*t)*16));p.pixelY=int16_t(std::lround((m.oldY+(m.y-m.oldY)*t)*16));p.followerFacing=m.facing;p.followerFrame=uint8_t((elapsed<WildStepFrames&&(m.oldX!=m.x||m.oldY!=m.y))?(elapsed/8)%4:0);return p;
 }
 Wild adoptWild(const online::WildState& w){
     Wild m{w.x,w.y,w.species,w.level,now>60?now-60:0,w.x,w.y,now>WildStepFrames?now-WildStepFrames:0,w.id,w.pixelX,w.pixelY,w.facing};
+    m.shiny=w.shiny;
     const unsigned remaining=unsigned(std::abs(w.x*16-w.pixelX)+std::abs(w.y*16-w.pixelY));
     if(remaining&&remaining<=16){constexpr int dx[]{0,0,0,-1,1},dy[]{0,1,-1,0,0};m.oldX-=dx[w.facing];m.oldY-=dy[w.facing];const unsigned age=(16-remaining)*WildStepFrames/16;m.moved=now>age?now-age:0;}
     return m;
@@ -310,6 +314,7 @@ bool chooseWild(uint16_t& species,uint8_t& level){
     return false;
 }
 uint32_t callGuestWords(uint32_t function,std::initializer_list<uint32_t> words,uint32_t maxSteps=2000000){
+    performance::Scope timing("native-call",function);
     const ArmCpuState saved=g_cpu;const bool previousGuestCall=guestCall;guestCall=true;
     g_cpu.R[13]-=64;unsigned i=0;for(auto value:words){if(i<4)g_cpu.R[i]=value;else bus()->write32(g_cpu.R[13]+4*(i-4),value);++i;}
     g_cpu.R[15]=function;g_cpu.R[14]=0xFFFF0101;g_cpu.cpsr|=CPSR_T_BIT;uint32_t steps=0;
@@ -336,10 +341,12 @@ uint8_t partyEggMask(uint8_t count){
 bool fieldBattleActive=false;
 bool fieldMoneyOfferReady();
 uint32_t interactWithTrainer();
+uint32_t interactWithFollower();
 
 extern CampSimulation localCamp;
 extern BattlePresence localBattle;
 bool battleOccupied(int x,int y);
+void createVisibleWild(uint16_t species,uint8_t level,bool shiny);
 void beginBattlePresence(uint16_t enemy=0,uint32_t wildId=0,const PlayerState* encounterPose=nullptr);
 bool campBlocked(int x,int y);
 bool releasedOccupied(int x,int y);
@@ -399,6 +406,7 @@ int fixtureHook(uint32_t,int,ArmCpuState*){
         constexpr uint32_t preserved=0x12345678;
         callGuestWords(gameAddress(0x0803da54),{mon,16,10,32,1,preserved,0,0});
         valid=valid&&r32(mon)==preserved&&callGuest(gameAddress(0x0803fbe8),mon,4)==0;
+        for(bool expected:{false,true}){createVisibleWild(16,10,expected);valid=valid&&isShiny(r32(mon),r32(mon+4))==expected&&callGuest(gameAddress(0x0803fbe8),mon,4)==0;}
         std::ofstream report(diagnosticPath.parent_path()/"shiny-check.txt");report<<"rate="<<rate<<" random="<<randomShiny<<" nature="<<natureShiny<<" valid="<<valid<<"\n";
         return 0;
     }
@@ -489,6 +497,7 @@ int fixtureHook(uint32_t,int,ArmCpuState*){
     else if(fixture=="camp-route1"||fixture=="camp-route1-b")callGuest(gameAddress(0x0805538c),3,19,0xffffffff,fixture=="camp-route1-b"?10:8,13);
     else if(fixture.starts_with("camp"))callGuest(gameAddress(0x0805538c),3,21,0xffffffff,fixture=="camp-b"?67:64,11);
     else if(fixture=="spectate")callGuest(gameAddress(0x0805538c),3,19,0xffffffff,16,14);
+    else if(fixture=="follower-edge")callGuest(gameAddress(0x0805538c),3,19,0xffffffff,10,0);
     else if(fixture.starts_with("wild")||fixture=="battle-char")callGuest(gameAddress(0x0805538c),3,19,0xffffffff,12,14);
     else callGuest(gameAddress(0x0805538c),5,5,0xffffffff,4,7);
     callGuest(gameAddress(0x0807e438));
@@ -515,7 +524,7 @@ int encounterHook(uint32_t,int,ArmCpuState* cpu){
 #ifdef FR_TEST_HARNESS
         chaseRequested=walkRequested=false;bus()->io().set_keyinput(0x3ff);
 #endif
-        callGuest(addresses.createWild,chosen.species,chosen.level,0);
+        createVisibleWild(chosen.species,chosen.level,chosen.shiny);
         beginBattlePresence(chosen.species,chosen.id,&encounterPose);
         callGuest(addresses.startWild);
         lastSpawn=now+120;
@@ -557,23 +566,25 @@ void icon(uint8_t* rgb,unsigned w,unsigned h,uint16_t species,int x,int y){
     }
     if(bottom>=0)blit(rgb,w,h,frame,addresses.iconPalettes+palette*32,32,32,x-16,y+15-bottom);
 }
-const FollowerSheet* followerSheet(uint16_t species){
-    auto found=followerSheets.find(species);if(found!=followerSheets.end())return found->second.image.empty()?nullptr:&found->second;
+const FollowerSheet* followerSheet(uint16_t species,bool shiny=false){
+    const uint32_t key=species|(uint32_t(shiny)<<16);
+    auto found=followerSheets.find(key);if(found!=followerSheets.end())return found->second.image.empty()?nullptr:&found->second;
     std::string name;
     if(validRom(speciesNames+species*11,11))for(unsigned i=0;i<11;++i){const auto c=r8(speciesNames+species*11+i);if(c==255)break;if(c>=0xbb&&c<=0xd4)name+=char('A'+c-0xbb);else if(c>=0xa1&&c<=0xaa)name+=char('0'+c-0xa1);}
     if(species==29)name="NIDORANfE";if(species==32)name="NIDORANmA";
     FollowerSheet sheet;
     if(!name.empty())try{
-        auto path=diagnosticPath.parent_path()/"Followers"/(name+".png");
-        if(!std::filesystem::exists(path))path=localAsset(std::filesystem::path("LocalAssets/Followers")/(name+".png"));
-        if(path.empty())path=localAsset(std::filesystem::path("Following Pokemon EX/Graphics/Characters/Followers")/(name+".png"));
+        const auto folder=shiny?"Followers shiny":"Followers";
+        auto path=diagnosticPath.parent_path()/folder/(name+".png");
+        if(!std::filesystem::exists(path))path=localAsset(std::filesystem::path("LocalAssets")/folder/(name+".png"));
+        if(path.empty())path=localAsset(std::filesystem::path("Following Pokemon EX/Graphics/Characters")/folder/(name+".png"));
         if(!path.empty())sheet=decodeFollowerSheet(readImage(path));
     }catch(const std::exception& e){std::fprintf(stderr,"Follower art: %s\n",e.what());}
-    const auto& result=followerSheets.emplace(species,std::move(sheet)).first->second;
+    const auto& result=followerSheets.emplace(key,std::move(sheet)).first->second;
     return result.image.empty()?nullptr:&result;
 }
 void follower(uint8_t* rgb,unsigned w,unsigned h,const PlayerState& p,int x,int y){
-    const auto* sheet=followerSheet(p.follower);
+    const auto* sheet=followerSheet(p.follower,p.followerShiny);
     if(!sheet){icon(rgb,w,h,p.follower,x,y);return;}
     const unsigned row=followerRow(p.followerFacing),frame=p.followerFrame%4;
     const int top=y+15-sheet->feet[row*4+frame],left=x-sheet->cellW/2;
@@ -599,12 +610,14 @@ bool departingSlot(unsigned slot);
 #include "world_battle.inc"
 #include "world_field_battle.inc"
 #include "world_session.inc"
+#include "world_follower.inc"
 void drawCaptions(){
     struct Box {int x,y,w,h;};
     auto overlap=[](Box a,Box b){return std::max(0,std::min(a.x+a.w,b.x+b.w)-std::max(a.x,b.x))*std::max(0,std::min(a.y+a.h,b.y+b.h)-std::max(a.y,b.y));};
     std::erase_if(captionAnchors,[](const auto& a){return a.slot>=MaxRoomPlayers||a.top<=0||a.top>=160||a.x<0||a.x>=240||captions[a.slot].info.name.empty();});
     std::sort(captionAnchors.begin(),captionAnchors.end(),[](auto a,auto b){return a.slot<b.slot;});
     std::vector<Box> protectedAreas,placed;
+    for(const auto& b:followerEmoteBounds)protectedAreas.push_back({b[0],b[1],b[2],b[3]});
     struct Labels {Box name{},party{};};std::array<Labels,MaxRoomPlayers> boxes{};
     for(const auto& a:captionAnchors)protectedAreas.push_back({a.x-9,a.top,18,a.bottom-a.top+2});
     for(const auto& a:captionAnchors){const auto& n=captions[a.slot].name;auto& b=boxes[a.slot];
@@ -716,23 +729,28 @@ void connect(online::Session* session){room=session;}
 void localSlot(unsigned slot){roomSlot=uint8_t(slot<MaxRoomPlayers?slot:0);}
 void frame(uint64_t frameNumber){
     now=frameNumber;if(guestCall)return;
+#ifdef FR_TEST_HARNESS
+    performance::frame=now;
+    static bool profilingOpened=false;if(!profilingOpened){performance::open(diagnosticPath.parent_path());profilingOpened=true;}
+#endif
+    performance::Scope frameTiming("world-frame");
     PlayerState next=completedPlayer;
     static uint32_t publication=0;next.sequence=++publication;
     if(!bus()||nativeLinkScene()||replaying()||(r32(0x030030F4)&~1u)!=addresses.overworld||(r8(0x02037abf)&0x80)){next.active=false;next.sampleTime=uint32_t(uint64_t(clockMs()));}
     originX=completedOriginX;originY=completedOriginY;avatarFlags=completedAvatarFlags;haveOrigin=next.active;
     const bool battleMap=localBattle.id&&(!next.active||(next.mapGroup==localBattle.trainer.mapGroup&&next.mapNumber==localBattle.trainer.mapNumber&&next.elevation==localBattle.trainer.elevation));
-    if(!sameMap(next,local)&&!battleMap){followerPath.clear();wild.clear();lastSpawn=now;}
+    if(!sameMap(next,local)&&!battleMap){wild.clear();lastSpawn=now;}
     previous=local;local=next;
-    syncWorldFrame();
-    updateStoryGates();
-    updateStoryRetry();
-    updateCamp();
-    updateBattlePresence();
-    updateReleases();
-    updateFieldUi();
-    updateFieldBattle();
-    updateFieldNotices();
-    updateWorldSession();
+    {performance::Scope timing("syncWorldFrame");syncWorldFrame();}
+    {performance::Scope timing("updateStoryGates");updateStoryGates();}
+    {performance::Scope timing("updateStoryRetry");updateStoryRetry();}
+    {performance::Scope timing("updateCamp");updateCamp();}
+    {performance::Scope timing("updateBattlePresence");updateBattlePresence();}
+    {performance::Scope timing("updateReleases");updateReleases();}
+    {performance::Scope timing("updateFieldUi");updateFieldUi();}
+    {performance::Scope timing("updateFieldBattle");updateFieldBattle();}
+    {performance::Scope timing("updateFieldNotices");updateFieldNotices();}
+    {performance::Scope timing("updateWorldSession");updateWorldSession();}
 #ifdef FR_TEST_HARNESS
     if(!diagnosticPath.empty()){
         static std::ofstream sent(diagnosticPath.parent_path()/"motion-source.csv");
@@ -746,7 +764,7 @@ void frame(uint64_t frameNumber){
 #endif
         return;
     }
-    followerPath.update(local,!(avatarFlags&0x1E)&&!localCamp.state.id);
+    updateFollower();
 #ifdef FR_TEST_HARNESS
     if(!diagnosticPath.empty()){static std::ofstream poses(diagnosticPath.parent_path()/"follower-source.csv");
         poses<<now<<','<<local.pixelX<<','<<local.pixelY<<','<<unsigned(local.facing)<<','<<local.followerVisible<<','<<local.followerX<<','<<local.followerY<<','<<unsigned(local.followerFacing)<<','<<unsigned(local.followerFrame)<<'\n';if(now%60==0)poses.flush();}
@@ -766,7 +784,7 @@ void frame(uint64_t frameNumber){
             const auto& center=viewers[random()%viewers.size()];const int x=center.x+int(random()%13)-6,y=center.y+int(random()%11)-5;
             if(!worldInView(x,y) || std::abs(x-center.x)+std::abs(y-center.y)<2 || worldOccupied(x,y) || !grass(x,y,local.elevation))continue;
             if(std::any_of(wild.begin(),wild.end(),[&](const Wild& m){return m.x==x&&m.y==y;}))continue;
-            uint16_t species;uint8_t level;if(chooseWild(species,level))wild.push_back({x,y,species,level,now,x,y,now,(uint32_t(roomSlot)<<27)|(++wildIdentity&0x07ffffffu)});
+            uint16_t species;uint8_t level;if(chooseWild(species,level)){Wild spawn{x,y,species,level,now,x,y,now,(uint32_t(roomSlot)<<27)|(++wildIdentity&0x07ffffffu)};spawn.shiny=rollShiny(roomState.shinyRate);wild.push_back(spawn);}
         }
     }
 #ifdef FR_TEST_HARNESS
@@ -778,9 +796,9 @@ void frame(uint64_t frameNumber){
         f<<"frame="<<now<<" map="<<unsigned(local.mapGroup)<<","<<unsigned(local.mapNumber)
          <<" tile="<<local.x<<","<<local.y<<" elevation="<<unsigned(local.elevation)
          <<" follower_xy="<<local.followerX<<","<<local.followerY<<" follower_facing="<<unsigned(local.followerFacing)<<" follower_frame="<<unsigned(local.followerFrame)
-         <<" lead_species="<<local.follower<<" wild="<<wild.size()<<" origin="<<originX<<","<<originY
+         <<" lead_species="<<local.follower<<" lead_shiny="<<local.followerShiny<<" wild="<<wild.size()<<" origin="<<originX<<","<<originY
          <<" offset="<<s16(0x02021bc8)<<","<<s16(0x02021bca)<<"\n";
-        for(const auto& m:wild)f<<"wild="<<m.x<<","<<m.y<<" species="<<m.species<<" level="<<unsigned(m.level)<<"\n";
+        for(const auto& m:wild)f<<"wild="<<m.x<<","<<m.y<<" species="<<m.species<<" level="<<unsigned(m.level)<<" shiny="<<m.shiny<<" id="<<m.id<<"\n";
         const auto events=r32(0x02036e00);
         if(validRom(events,20)){
             const unsigned count=r8(events+1);const auto warps=r32(events+8);
@@ -790,8 +808,14 @@ void frame(uint64_t frameNumber){
 }
 void render(uint8_t* rgb,uint32_t w,uint32_t h){
     if(nativeLinkScene() || replaying() || !local.active || !haveOrigin || !rgb || w!=240 || h!=160)return;
+    // Native normal fade coefficient remains 16 at the black endpoint even
+    // after the active flag clears. Hardware effects are handled by the PPU.
+    const unsigned fadeMode=r8(0x02037ac0)&3,fadeAmount=(r16(0x02037abc)>>6)&31;
+    if((r8(0x02037abf)&0x80)||(fadeMode==0&&fadeAmount))return;
+    if(std::all_of(rgb,rgb+w*h*3,[](uint8_t c){return c==0;}))return;
+    performance::Scope timing("render");
     std::fill(hostPixels.begin(),hostPixels.end(),gba::HostObjPixel{});
-    captionAnchors.clear();
+    captionAnchors.clear();followerEmoteBounds.clear();
     const int dx=completedOriginX+completedOffsetX,dy=completedOriginY+completedOffsetY;
 #ifdef FR_TEST_HARNESS
     hostIntersections=0;
@@ -808,13 +832,10 @@ void render(uint8_t* rgb,uint32_t w,uint32_t h){
         drawingKey=spriteKey(local.elevation,p.pixelY+dy+16,32+wildIndex++);
         follower(rgb,w,h,p,p.pixelX+dx+8,p.pixelY+dy);
 #ifdef FR_TEST_HARNESS
-        if(!diagnosticPath.empty()){static std::ofstream trace(diagnosticPath.parent_path()/"wild-motion.csv");trace<<now<<','<<m.id<<','<<p.pixelX<<','<<p.pixelY<<','<<unsigned(p.followerFacing)<<','<<unsigned(p.followerFrame)<<','<<(followerSheet(p.follower)!=nullptr)<<'\n';if(now%60==0)trace.flush();}
+        if(!diagnosticPath.empty()){static std::ofstream trace(diagnosticPath.parent_path()/"wild-motion.csv");trace<<now<<','<<m.id<<','<<p.pixelX<<','<<p.pixelY<<','<<unsigned(p.followerFacing)<<','<<unsigned(p.followerFrame)<<','<<(followerSheet(p.follower,p.followerShiny)!=nullptr)<<'\n';if(now%60==0)trace.flush();}
 #endif
     }
-    if(followOn&&local.follower&&local.followerVisible){
-        drawingKey=spriteKey(local.elevation,local.followerY+dy+16,16+roomSlot);
-        follower(rgb,w,h,local,local.followerX+dx+8,local.followerY+dy);
-    }
+    drawCompanion(rgb,w,h,local,roomSlot,dx,dy);
     if(!captions[roomSlot].info.name.empty()){
         const int x=local.pixelX+dx+8,y=local.pixelY+dy;
         drawingKey=spriteKey(local.elevation,y+16,roomSlot);
@@ -826,10 +847,7 @@ void render(uint8_t* rgb,uint32_t w,uint32_t h){
         if(!sameScene(local,p))continue;
         lastRemoteField[p.netSlot]=p;
         const int x=p.pixelX+dx+8,y=p.pixelY+dy;
-        if(followOn&&p.follower&&p.followerVisible&&!campingSlot(p.netSlot)){
-            drawingKey=spriteKey(p.elevation,p.followerY+dy+16,16+p.netSlot);
-            follower(rgb,w,h,p,p.followerX+dx+8,p.followerY+dy);
-        }
+        drawCompanion(rgb,w,h,p,p.netSlot,dx,dy);
         drawingKey=spriteKey(p.elevation,y+16,p.netSlot);
         const int top=trainer(rgb,w,h,p,x,y);
 #ifdef FR_TEST_HARNESS

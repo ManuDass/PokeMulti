@@ -69,16 +69,16 @@ The amount picker uses the original native item-sale quantity-box presentation w
 
 ## Agreed battle wagers
 
-After the committed payout/refund save, a native field message reports the personal result. A P100 winner sees "You won P100!" and that their P100 stake was returned; the loser sees "You lost your P100 wager." A refunded deposit is described as a refund, and an unreserved wager never claims that money was returned. The receipt is announced once per running client before acknowledging settlement to the host. Free battles have no wager message.
+After applying a payout or refund, a native field message reports the personal result. A P100 winner sees "You won P100!" and that their P100 stake was returned; the loser sees "You lost your P100 wager." A refunded deposit is described as a refund, and an unreserved wager never claims that money was returned. The receipt is announced once per running client before acknowledging settlement to the host. Free battles have no wager message.
 
 
-An invitation includes an immutable amount and host nonce; acceptance identifies that exact invitation. Zero remains free. A nonzero wager waits for both original games to save their deposits before pairing the cable. The native linked battle must start on both clients and report opposite win/loss outcomes before the host commits a winner. Draws or conflicting outcomes refund both deposits. An unrelated player cannot submit a participant's events.
+An invitation includes an immutable amount and host nonce; acceptance identifies that exact invitation. Zero remains free. A nonzero wager waits for both original games to reserve their deposits before pairing the cable. The native linked battle must start on both clients and report opposite win/loss outcomes before the host commits a winner. Draws or conflicting outcomes refund both deposits. An unrelated player cannot submit a participant's events.
 
-Native money remains encrypted using each save's original key. SetMoney and TrySavingData run on the game thread at a safe overworld boundary. Deposit/payout acknowledgements wait until the runtime has atomically flushed the original flash save. A transaction marker occupies FireRed's unused 16-byte field at SaveBlock1 + 0x3D24; a profile sidecar and host ledger retain recovery state. A duplicate snapshot or acknowledgement cannot debit or credit again. Stakes are limited to 499,999 and payouts must fit the native 999,999 wallet. No money is discarded if a payout is temporarily blocked by the wallet cap.
+Native money remains encrypted using each save's original key. SetMoney runs on the game thread at a safe overworld boundary. Deposit and payout acknowledgements follow the in-memory change. The host explicitly saves the world to persist the native trainer data and host ledger; wager phases do not trigger game saves. A transaction marker occupies FireRed's unused 16-byte field at SaveBlock1 + 0x3D24; a profile sidecar and host ledger retain recovery state. A duplicate snapshot or acknowledgement cannot debit or credit again. Stakes are limited to 499,999 and payouts must fit the native 999,999 wallet. No money is discarded if a payout is temporarily blocked by the wallet cap.
 
 A disconnect cancels an unfinished wager; host restart changes unfinished records to refunds. Committed winners remain committed. Pending deposits must reconnect to the same host for coordinated recovery. The profile, its native save and its wager records must be kept together. This is a trusted-friends room model, without anti-cheat or a public authoritative economy.
 
-Wager payouts and refunds save only at a safe normal-field boundary. Field battles return there automatically; no Cable Club exit is required. The room panel shows a pending result until the original flash save commits.
+Wager payouts and refunds apply at a safe normal-field boundary. Field battles return there automatically; no Cable Club exit is required. Save the world from the host game menu to keep those changes. Closing or crashing restores the last manual checkpoint.
 
 ## Camps (0.8.0)
 World reports include an optional bounded camp: a unique placement ID, map/elevation, a fixed 4 x 3 footprint, animation tick and up to six species/position/direction/pose records. CampSnapshot (26) carries all four camp slots and host decisions. Only a client's authenticated slot may publish its camp. The host arbitrates intersecting placements, checks known player/NPC occupancy, fixes accepted geometry and species, and removes reservations on leave, inactive reports or stale presence. Rejected placement IDs cannot silently become accepted later.
@@ -103,7 +103,7 @@ FRMP 13 adds bounded CampaignSnapshot packets: campaign ID, sequence and named o
 
 The campaign's canonical proof of a trainer/Gym victory is separate from each trainer's native victory and badge flags. The original trainer card, obedience, payouts, Gym challenges and League sequence remain personal. Supported travel permission checks consult campaign access. Script encounters retain their actor leases; passive players do not execute the other trainer's dialogue.
 
-Native reward receipts and story access changes checkpoint using the original save routine after a safe return to the field. Notices use native script/text-printer commands, validated and wrapped ROM text, and queue behind existing encounters. See [CAMPAIGN.md](CAMPAIGN.md) for coverage and save semantics.
+Native reward receipts and story access changes are included in the host's next manual save, using the original save routine at a safe field boundary. Notices use native script/text-printer commands, validated and wrapped ROM text, and queue behind existing encounters. See [CAMPAIGN.md](CAMPAIGN.md) for coverage and save semantics.
 
 FRMP 14 keeps the camp packet layout but updates camp validity for compact clearings. Earlier clients reject these valid camps under their all-sides walkway rule, so mixed-version rooms are rejected at handshake. All players must launch 0.18.0 together.
 
@@ -142,3 +142,23 @@ For a new Unown, its letter takes priority when that letter/nature/OT combinatio
 cannot be shiny under the native rules; only then is a compatible nature used.
 The calculation follows the [original generation rules](https://github.com/pret/pokefirered/blob/master/src/pokemon.c)
 and [shiny constants](https://github.com/pret/pokefirered/blob/master/include/constants/pokemon.h).
+
+## Followers and shiny presentation (0.26.5 / FRMP 21)
+
+Visible wild Pokemon receive a shiny identity at spawn. The map authority sends
+that identity to all clients, and the native encounter keeps it even if the host
+changes the rate before contact. Existing spawns and owned Pokemon are not
+rerolled. Followers, camp party members, released Pokemon and spectator battle
+poses select the supplied normal or shiny animated sheet for their individual.
+
+A follower starts on an available neighboring tile without requiring a step.
+Walking history is translated across connected routes and towns. Actual recalls,
+send-outs, lead changes and faint replacements use the supplied ComeInOut cells.
+Face an adjacent follower and press X for a cry, native text-box response and an
+animated heart, happy or music emote. Emotes, send-out and recall effects display at half source size with
+nearest-neighbor sampling. PNGs are unchanged. Effects use normal world object
+composition; native UI, foreground terrain and transition fades retain priority.
+
+All players must update because FRMP 21 adds shiny and follower reaction state.
+Save files remain compatible. Saving is manual; the host's Save includes guests
+once they reach a safe field boundary. Exit does not create another checkpoint.

@@ -1,4 +1,4 @@
-// All native wallet reads/writes and saves happen on the game thread.
+// Native wallet changes happen on the game thread; only manual Save persists the game.
 struct WalletJournal {std::string id,host;uint32_t stake=0,phase=0;};
 WalletJournal walletJournal;
 bool walletLoaded=false,walletBattleSeen=false,walletKnown=false;
@@ -20,9 +20,8 @@ void walletSave(uint32_t balance,uint32_t phase){
     // A transaction receipt in FireRed's unused 16-byte save field makes a
     // native save + sidecar recovery idempotent across a crash between writes.
     bus()->write32(save+0x3d24,WalletReceipt);bus()->write32(save+0x3d28,uint32_t(hash));bus()->write32(save+0x3d2c,uint32_t(hash>>32));bus()->write32(save+0x3d30,phase);
-    prepareNativeFieldSave();
-    if(callGuest(gameAddress(0x080da364),0,0,0,0,0,20000000)!=1)throw std::runtime_error("Native wager save failed; the deposit was not acknowledged");
-    walletPendingSave=phase;walletMessage="Saving wager money...";
+    walletJournal.phase=phase;storeWallet();walletSent=0;
+    walletMessage=phase==1?"Deposit reserved. Getting ready to battle.":"Wager money updated. Save the world to keep it.";
 }
 void synchronizeWallet(){
     if(!bus()||!room)return;
@@ -66,8 +65,8 @@ void synchronizeWallet(){
     if(walletJournal.host!=w.host||walletJournal.stake!=w.stake)throw std::runtime_error("Wager terms changed after agreement");
     const auto tick=uint64_t(clockMs());
     if(walletJournal.phase==2){
-        // Phase 2 is reached only after the native payout/refund save has
-        // flushed (or its persisted receipt has been recovered). Queue the
+        // Phase 2 follows the in-memory payout/refund (or recovery from
+        // a manual checkpoint). Queue the
         // result before acknowledging it: the host may then clear this wager.
         if(w.terminal()&&walletResultNotified!=w.id){
             walletResultNotified=w.id;walletMessage=wagerResultText(w,side);
@@ -87,7 +86,7 @@ void synchronizeWallet(){
             walletJournal.phase=2;storeWallet();walletSent=0;return;
         }
         if(!w.reserved[side]){if(tick>walletSent+500){room->wagerEvent(w.id,1,1);walletSent=tick;}return;}
-        if(!safe){walletMessage="Return to the field to save your wager payout or refund.";return;}
+        if(!safe){walletMessage="Return to the field to receive your wager payout or refund.";return;}
         const auto credit=w.credit(side);
         if(credit>online::MoneyLimit-shownBalance){walletMessage="Wager payout waiting: spend money to make room in your wallet.";return;}
         walletSave(shownBalance+credit,2);return;

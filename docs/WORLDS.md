@@ -2,15 +2,15 @@
 
 The launcher lists worlds for the selected ROM. Select **Play world** for solo play, **Host world** to open it to friends, or **New world** for a separate adventure. Host setup includes the room key, TCP port, reward checkboxes and a **2–32 player limit**, including the host. Money and owned teams always remain individual. Solo play continues the same world's campaign without opening a listening socket.
 
-Friends use **Join a friend** and **Paste invite**, or enter the host's IPv4 address, port and key. Hosting uses the existing direct, port-forwarded connection. Every client needs 0.25.0 and the same verified ROM. There is no hosted directory to configure.
+Friends use **Join a friend** and **Paste invite**, or enter the host's IPv4 address, port and key. Hosting uses the existing direct, port-forwarded connection. Every client needs 0.26.5 and the same verified ROM. There is no hosted directory to configure.
 
 ## Saving and returning
 
 The host owns the world's campaign, shared released Pokémon and separate trainer checkpoints. Guests receive their world-specific trainer before the game boots. First-time guests use the original New Game flow and choose their own starter.
 
-Ordinary progress requests an automatic checkpoint every 900 game frames, approximately 15 seconds at normal speed. Saving waits for a safe, stationary field boundary outside dialogue, battles, active encounters, link trades and pending transactions. It uses the original native save routine. The host's **Enter → Save** requests checkpoints from all connected trainers; guests do not need to open Save themselves.
+Saving is entirely manual. There are no periodic, campaign, wager or release-triggered game saves. Saving waits for a safe, stationary field boundary outside dialogue, battles, active encounters, link trades and pending transactions. It uses the original native save routine. The host's **Enter → Save** requests checkpoints from all connected trainers; guests do not need to open Save themselves.
 
-**Save & exit world** and closing the window request final safe checkpoints, with a bounded five-second wait. If a trainer is busy, their most recent completed checkpoint remains available. A crash or lost connection therefore restores the latest checkpoint already received by the host, rather than an arbitrary in-battle frame. Guests return to the launcher when the host disconnects or shuts down, and cannot continue that world alone. Rejoining always downloads the host's copy.
+**Exit world** and closing the window do not start a save. They allow an already requested save up to five seconds to finish. Save from the game menu before leaving. If a trainer is busy, their most recent completed checkpoint remains available. A crash or lost connection therefore restores the latest checkpoint already received by the host, rather than an arbitrary in-battle frame. Guests return to the launcher when the host disconnects or shuts down, and cannot continue that world alone. Rejoining always downloads the host's copy.
 
 ## Files and migration
 
@@ -40,7 +40,7 @@ Back up the complete world folder and the launcher's `identity.cfg` and `identit
 | Key | Action |
 | --- | --- |
 | WASD / arrows | Move |
-| X | Confirm / interact; challenge a facing adjacent trainer |
+| X | Confirm / interact; pet a facing follower or challenge a facing trainer |
 | Z | Cancel; run with Running Shoes |
 | Enter | Game menu; Send while editing chat |
 | Right Shift | Select |

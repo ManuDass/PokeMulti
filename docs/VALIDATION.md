@@ -34,6 +34,12 @@ winner/loser money results. FireRed US v1.0 passed the world-persistence regress
 
 ## ROM switching and shiny settings (0.26.4)
 
+GitHub Actions run `34420844227` passed the clean Windows build, all 54 test
+groups, audited packaging and installer publication. The updater shipped in
+0.26.3 downloaded the public 0.26.4 release, verified its archive and full
+manifest, installed it into an isolated copy, and restarted with the same data
+directory. Every installed file matched and disposable user data was preserved.
+
 The real Windows file chooser passed FireRed → LeafGreen → FireRed switching,
 cancellation, per-ROM world filtering and unchanged username/identity/friend data.
 Launcher captures verify the green LeafGreen top bar and controls. The game UI
@@ -63,7 +69,9 @@ since the last completed safe checkpoint.
 
 The separate macOS preview branch passed native Intel and Apple Silicon builds,
 CTest, ROM-free launcher and packaged-app smoke checks, and ad-hoc signature
-verification in GitHub Actions run `34416681074`. Both LeafGreen cartridge
+verification in GitHub Actions run `34421232551` for preview 0.27.1. Portable
+tests also cover profile-preserving ROM switches, shiny traits, world isolation
+and host/guest shiny settings. Both LeafGreen cartridge
 previews were visually reviewed, and the packaged artwork matches the supplied
 PNG byte-for-byte. These checks do not validate ROM gameplay on physical Macs
 or establish full Windows feature parity. Mac updates remain manual and
@@ -73,3 +81,38 @@ personal save is sent to CI.
 Build instructions are in the repository README. Developer acceptance checks
 are grouped under `tests/integration`; historical planning and session logs are
 maintained locally, outside the public source tree.
+
+## Follower presentation and manual saves (0.26.5)
+
+All 54 local CTest groups pass, including individual shiny metadata on real room
+packets, supplied normal/shiny sprite decoding, follower lifecycle, and explicit
+campaign, wager and release persistence. The ROM address audit validates 194 ROM
+mappings and 65 RAM references across all four supported cartridge layouts.
+
+Two native LeafGreen clients passed host-initiated manual checkpoints, cold
+reconnect with private teams/money/positions, nearby trade invitations and host
+loss returning the guest to the launcher. A separate 60-second hosting test
+created no automatic checkpoints or native save calls. The former timer caused
+1.2–1.4 second calls; those calls now occur only when saving explicitly. The
+largest measured host world-update call before manual Save was 28.35 ms in the
+diagnostic build (guest: 5.53 ms); this is not an overall frame-rate benchmark.
+
+Native follower acceptance covers initial stationary placement, X petting,
+half-size emotes, both settings transitions, faint replacement, an actual
+Pokemon Center exit and walking from Route 1 into Viridian. All 413 captured
+LeafGreen fade/black frames had zero overlay changes. Visible shiny Pokemon use
+the supplied art and enter battle with the matching shiny identity. All 386
+shiny PNGs and four animation PNGs match the supplied files byte-for-byte.
+
+The same native follower acceptance also passed on FireRed US 1.0. A native
+LeafGreen wager battle verified the winner received P101 net, the loser paid
+P101, both original parties/positions were restored, and native result messages
+were readable. No wager phase wrote a native game save.
+
+## Follower animation row correction (0.26.6)
+
+Send-out selects source cells 0 through 3; recall selects cells 5 through 7
+without returning to the top row. Tests reject blank or opposite-row cells and
+verify that finished effects select no cell. The supplied PNG remains unchanged.
+The runtime refreshes the native framebuffer before composition, and the world
+renderer clears its host-object layer before drawing one current cell per follower.

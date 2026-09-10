@@ -6,7 +6,7 @@
 #include <vector>
 namespace fr::game {
 inline constexpr int CampWidth=4,CampHeight=3,CampRadius=5,CampSpan=CampRadius*2+1;
-struct CampMon {uint16_t species=0;int16_t x=0,y=0;uint8_t facing=1,frame=0,mood=0;};
+struct CampMon {uint16_t species=0;int16_t x=0,y=0;uint8_t facing=1,frame=0,mood=0;bool shiny=false;};
 struct CampState {
     uint32_t id=0,sequence=0,sampleTime=0,tick=0;
     uint8_t group=0,map=0,elevation=0;

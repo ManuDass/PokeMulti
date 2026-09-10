@@ -4,8 +4,8 @@
 #include <iomanip>
 #include <sstream>
 namespace fr::online {
-void WagerBook::persist()const{
-    if(path.empty())return;std::ostringstream out;out<<"PMW1\n";
+void WagerBook::persist(bool force)const{
+    if(path.empty()||(manual&&!force))return;std::ostringstream out;out<<"PMW1\n";
     for(const auto& w:records){out<<w.id<<' '<<w.host<<' '<<w.players[0]<<' '<<w.players[1]<<' '<<w.stake<<' '<<unsigned(w.phase)<<' '<<w.winner;
         for(int i=0;i<2;++i)out<<' '<<w.reserved[i]<<' '<<w.began[i]<<' '<<w.paid[i]<<' '<<unsigned(w.outcome[i]);out<<'\n';}
     fr::replaceText(path,out.str());
