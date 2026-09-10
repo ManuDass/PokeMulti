@@ -50,10 +50,10 @@ void loadCampArt(){
     for(unsigned i=0;i<3;++i){const auto p=localAsset("Camp/Tent_f"+std::to_string(i+1)+".png");if(p.empty())throw std::runtime_error("Camp tent frames are missing. Restore the Camp folder.");frames[i]=readImage(p);if(frames[i].width!=56||frames[i].height!=39)throw std::runtime_error("Camp frames must retain their original 56 x 39 size.");}
     campFrames=std::move(frames);
 }
-std::vector<uint16_t> campParty(){
-    std::vector<uint16_t> party;const unsigned count=r8(0x02024029);if(count>6)return party;
+std::vector<CampMon> campParty(){
+    std::vector<CampMon> party;const unsigned count=r8(0x02024029);if(count>6)return party;
     for(unsigned i=0;i<count;++i){const auto mon=0x02024284+i*100;const auto species=callGuest(gameAddress(0x0803fbe8),mon,11);const auto egg=callGuest(gameAddress(0x0803fbe8),mon,45);
-        if(species&&species<=411&&!egg)party.push_back(uint16_t(species));}
+        if(species&&species<=411&&!egg){CampMon p;p.species=uint16_t(species);p.shiny=isShiny(r32(mon),r32(mon+4));party.push_back(p);}}
     return party;
 }
 void updateCamp(){
@@ -71,7 +71,7 @@ void updateCamp(){
         else if(!safeStory()||r8(0x0203707b)==1||(avatarFlags&0x1e))campMessage="Finish moving or the current scene before camping on foot.";
         else if(!campLawn(local.x,local.y))campMessage="You can't camp here! Find a clear patch of short grass outside.";
         else try{
-            loadCampArt();const auto party=campParty();bool placed=false;
+            loadCampArt();const auto party=campParty();std::vector<uint16_t> species;for(const auto& p:party)species.push_back(p.species);bool placed=false;
             if(party.empty())campMessage="Bring a Pokemon in your party to camp.";
             else {
                 std::vector<CampCell> candidates;
@@ -82,7 +82,8 @@ void updateCamp(){
                     if(!campFootprint(camp,campClear))continue;auto ground=campGround(camp,[](int x,int y){return campLawn(x,y)&&!campEventTile(x,y);},CampCell{local.x,local.y});
                     // Keep the trainer's square free when initially placing the party.
                     std::stable_partition(ground.begin(),ground.end(),[](auto p){return !(p.x==local.x&&p.y==local.y)&&campClear(p.x,p.y);});
-                    if(std::count_if(ground.begin(),ground.end(),[](auto p){return campClear(p.x,p.y);})<party.size()||!localCamp.start(camp,party,ground))continue;
+                    if(std::count_if(ground.begin(),ground.end(),[](auto p){return campClear(p.x,p.y);})<party.size()||!localCamp.start(camp,species,ground))continue;
+                    for(size_t i=0;i<party.size();++i)localCamp.state.party[i].shiny=party[i].shiny;
                     campPending=roomState.connected;campWasOnline=roomState.connected;campBegan=now;placed=true;campMessage=campPending?"Reserving this campsite...":"Walk outside the green outline to pack up automatically.";break;
                 }
                 if(!placed)campMessage="The tent needs a clear patch of grass, an open entrance, and room for your party.";
@@ -98,7 +99,7 @@ void updateCamp(){
     if(localCamp.state.id&&!campPending&&roomState.connected&&roomState.world.campDecisions[roomSlot]==localCamp.state.id&&!roomState.world.camps[roomSlot].id)endCamp("The room released this campsite. Set up again to continue camping.");
     if(localCamp.state.id&&!campPending){localCamp.update(campClear);local.followerVisible=false;}
     for(unsigned slot=0;slot<MaxRoomPlayers;++slot){const auto& c=roomState.world.camps[slot];for(unsigned i=0;i<6;++i){if(!roomState.connected||slot==roomSlot||!c.id||i>=c.party.size()){campMotion[slot][i].clear();continue;}
-        const auto& mon=c.party[i];PlayerState p;p.active=true;p.mapGroup=c.group;p.mapNumber=c.map;p.elevation=c.elevation;p.x=int16_t(mon.x/16);p.y=int16_t(mon.y/16);p.pixelX=mon.x;p.pixelY=mon.y;p.follower=mon.species;p.followerFacing=mon.facing;p.followerFrame=mon.mood==2?uint8_t((c.tick/12)%4):mon.frame;p.offsetY=mon.mood==1?int8_t(-std::abs(4-int(c.tick%16)/2)):0;p.flip=mon.mood;p.sequence=c.sequence;p.sampleTime=c.sampleTime;p.identity=(uint64_t(c.id)<<8)|slot;campMotion[slot][i].push(p,clockMs());}}
+        const auto& mon=c.party[i];PlayerState p;p.active=true;p.mapGroup=c.group;p.mapNumber=c.map;p.elevation=c.elevation;p.x=int16_t(mon.x/16);p.y=int16_t(mon.y/16);p.pixelX=mon.x;p.pixelY=mon.y;p.follower=mon.species;p.followerShiny=mon.shiny;p.followerFacing=mon.facing;p.followerFrame=mon.mood==2?uint8_t((c.tick/12)%4):mon.frame;p.offsetY=mon.mood==1?int8_t(-std::abs(4-int(c.tick%16)/2)):0;p.flip=mon.mood;p.sequence=c.sequence;p.sampleTime=c.sampleTime;p.identity=(uint64_t(c.id)<<8)|slot;campMotion[slot][i].push(p,clockMs());}}
 #ifdef FR_TEST_HARNESS
     if(now%60==0&&!diagnosticPath.empty()){
         std::ofstream f(diagnosticPath.parent_path()/"camp-check.txt");f<<"frame="<<now<<" active="<<(localCamp.state.id!=0)<<" pending="<<campPending<<" lawn="<<(local.active&&campLawn(local.x,local.y))<<" message="<<campMessage<<'\n';
@@ -146,7 +147,7 @@ void drawCamps(uint8_t* rgb,unsigned w,unsigned h,int dx,int dy){
         drawingKey=spriteKey(c.elevation,y+art.height,80+slot);
         for(int yy=0;yy<art.height;++yy)for(int xx=0;xx<art.width;++xx){const auto rgba=art.pixels[yy*art.width+xx];if(!(rgba>>24))continue;const uint16_t color=uint16_t(((rgba&255)>>3)|((((rgba>>8)&255)>>3)<<5)|((((rgba>>16)&255)>>3)<<10));hostPixel(x+xx,y+yy,color,rgba);}
         for(unsigned i=0;i<c.party.size();++i){const auto& mon=c.party[i];PlayerState p;
-            if(slot==roomSlot){p.active=true;p.pixelX=mon.x;p.pixelY=mon.y;p.follower=mon.species;p.followerFacing=mon.facing;p.followerFrame=mon.mood==2?uint8_t((c.tick/12)%4):mon.frame;p.offsetY=mon.mood==1?int8_t(-std::abs(4-int(c.tick%16)/2)):0;}
+            if(slot==roomSlot){p.active=true;p.pixelX=mon.x;p.pixelY=mon.y;p.follower=mon.species;p.followerShiny=mon.shiny;p.followerFacing=mon.facing;p.followerFrame=mon.mood==2?uint8_t((c.tick/12)%4):mon.frame;p.offsetY=mon.mood==1?int8_t(-std::abs(4-int(c.tick%16)/2)):0;}
             else p=campMotion[slot][i].sample(clockMs());if(!p.active)continue;
             drawingKey=spriteKey(c.elevation,p.pixelY+dy+16,96+slot*6+i);follower(rgb,w,h,p,p.pixelX+dx+8,p.pixelY+dy+p.offsetY);
         }

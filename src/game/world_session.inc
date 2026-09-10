@@ -1,14 +1,17 @@
-// Native, safe-field checkpoints. Guests never need to open the Save menu.
-uint64_t nextWorldSave=0,nextFlashCheck=0,nextDeparture=0;
+// Only explicit Save requests create trainer checkpoints. No timer or exit autosave.
+// A host request still saves connected guests at their next safe field boundary.
+uint64_t nextFlashCheck=0,nextDeparture=0;
 uint32_t seenWorldSaveRequest=0;
 bool worldSaveRequested=false,manualWorldSave=false;
 std::string lastWorldCheckpoint;
 PlayerState lastLocalField;
 bool worldExitRequested=false,worldExitReady=false;uint64_t worldExitBegan=0;
-uint32_t lastCheckpointSent=0;bool exitCaptured=false;
+uint32_t lastCheckpointSent=0;
+void requestManualCheckpoint(){worldSaveRequested=true;manualWorldSave=true;}
 bool beginWorldExit(){
     if(worldExitReady||!room||!room->status().managedWorld||(!room->status().connected&&!room->status().hosting))return true;
-    if(!worldExitRequested){worldExitRequested=true;worldExitBegan=online::chatClock();worldSaveRequested=true;room->requestWorldSave();}
+    if(!worldSaveRequested&&!manualWorldSave&&room->status().checkpointWaiting==0&&room->status().checkpointAck>=lastCheckpointSent)return true;
+    if(!worldExitRequested){worldExitRequested=true;worldExitBegan=online::chatClock();}
     return false;
 }
 
@@ -31,10 +34,13 @@ void updateWorldSession(){
         departures[d.slot]={d.sequence,d.origin,d.receivedAt};
     }
     if(!room)return;const auto status=room->status();if(!status.managedWorld)return;
-    if(status.checkpointRequest!=seenWorldSaveRequest){seenWorldSaveRequest=status.checkpointRequest;if(!status.hosting)worldSaveRequested=true;}
-    if(now>=nextWorldSave){worldSaveRequested=true;nextWorldSave=now+900;}
+#ifdef FR_TEST_HARNESS
+    if(now%30==0){std::ofstream f(diagnosticPath.parent_path()/"world-save-check.txt");f<<"frame="<<now<<" managed=1 automatic=0 request="<<status.checkpointRequest<<" ack="<<status.checkpointAck<<" pending="<<worldSaveRequested<<" world="<<status.worldId<<'\n';}
+#endif
+    if(status.checkpointRequest!=seenWorldSaveRequest){seenWorldSaveRequest=status.checkpointRequest;if(!status.hosting){worldSaveRequested=true;manualWorldSave=true;}}
+
     if(worldExitRequested&&!worldExitReady){
-        const bool flushed=exitCaptured&&status.checkpointAck>=lastCheckpointSent&&status.checkpointWaiting==0;
+        const bool flushed=!worldSaveRequested&&!manualWorldSave&&status.checkpointAck>=lastCheckpointSent&&status.checkpointWaiting==0;
         if((flushed&&online::chatClock()-worldExitBegan>=250)||online::chatClock()-worldExitBegan>=5000){worldExitReady=true;SDL_Event e{};e.type=SDL_QUIT;SDL_PushEvent(&e);}
     }
     const bool fieldSafe=safeStory()&&validRam(r32(0x03005008),0x3d68)&&validRam(r32(0x0300500c),0xf24)&&r8(0x02024029)<=6&&!r32(0x03003f64);
@@ -44,19 +50,16 @@ void updateWorldSession(){
         if(callGuest(gameAddress(0x080da364),0,0,0,0,0,20000000)!=1)throw std::runtime_error("World checkpoint failed; progress remains in memory.");
         worldSaveRequested=false;nextFlashCheck=now+2;
     }
-    if(now<nextFlashCheck||bus()->save().dirty()||walletPendingSave||campaignSaving)return;
+    if(!manualWorldSave||worldSaveRequested||now<nextFlashCheck||bus()->save().dirty()||walletPendingSave||campaignSaving)return;
     nextFlashCheck=now+30;
     const auto flash=bus()->save().flash_bytes();
     // No checkpoint of a blank cartridge or incomplete native save sequence.
     if(flash.size()!=131072||std::none_of(flash.begin(),flash.end(),[](uint8_t v){return v!=255;}))return;
     if(!fieldSafe&&!manualWorldSave)return;
     const auto checkpoint=fr::captureCheckpoint(diagnosticPath.parent_path(),flash);const auto hash=fr::digest(checkpoint);
-    if(hash!=lastWorldCheckpoint){if(const auto serial=room->storeCheckpoint(checkpoint)){lastCheckpointSent=serial;lastWorldCheckpoint=hash;if(status.hosting&&!worldExitRequested)room->requestWorldSave();}}
-    if(worldExitRequested&&!worldSaveRequested)exitCaptured=true;
+    if(hash!=lastWorldCheckpoint){if(const auto serial=room->storeCheckpoint(checkpoint)){lastCheckpointSent=serial;lastWorldCheckpoint=hash;if(status.hosting)room->requestWorldSave();}}
     manualWorldSave=false;
-#ifdef FR_TEST_HARNESS
-    std::ofstream f(diagnosticPath.parent_path()/"world-save-check.txt");f<<"frame="<<now<<" managed=1 request="<<status.checkpointRequest<<" ack="<<status.checkpointAck<<" pending="<<worldSaveRequested<<" world="<<status.worldId<<'\n';
-#endif
+
 }
 void drawDepartures(uint8_t* rgb,unsigned w,unsigned h,int dx,int dy){
     for(unsigned slot=0;slot<MaxRoomPlayers;++slot){

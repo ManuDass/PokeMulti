@@ -1,6 +1,6 @@
 # Dependencies and distribution
 
-This project vendors generic runtime/compiler/library code. The standalone package excludes ROMs, BIOS images, generated cartridge translations and Nintendo game source. It includes the owner-supplied artwork used by the application: fonts, chat tiles, icons, camp frames, 386 normal follower sheets, the cartridge label and the controller preview model/texture. See UI_ASSETS.md and the included follower credits. Full Essentials/reference packs and their scripts are excluded.
+This project vendors generic runtime/compiler/library code. The standalone package excludes ROMs, BIOS images, generated cartridge translations and Nintendo game source. It includes the owner-supplied artwork used by the application: fonts, chat tiles, icons, camp frames, 386 normal and 386 shiny follower sheets, four follower animation sheets, cartridge labels and the controller preview model/texture. See UI_ASSETS.md and the included follower credits. Full Essentials/reference packs and their scripts are excluded.
 
 | Dependency | Pin | Terms |
 | --- | --- | --- |

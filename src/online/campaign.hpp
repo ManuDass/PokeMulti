@@ -8,8 +8,11 @@ class CampaignBook {
     std::filesystem::path path;
     game::CampaignState state;
     std::map<uint16_t,uint16_t> saved;
-    void flush() const;
+    bool manual=false;
+    void flush(bool force=false) const;
 public:
+    void manualSaving(bool enabled){manual=enabled;}
+    void save()const{flush(true);}
     void open(const std::filesystem::path& folder,bool fresh=false);
     bool ready()const{return !saved.empty();}
     const game::CampaignState& snapshot()const{return state;}

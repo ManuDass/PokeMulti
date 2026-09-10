@@ -81,3 +81,30 @@ personal save is sent to CI.
 Build instructions are in the repository README. Developer acceptance checks
 are grouped under `tests/integration`; historical planning and session logs are
 maintained locally, outside the public source tree.
+
+## Follower presentation and manual saves (0.26.5)
+
+All 54 local CTest groups pass, including individual shiny metadata on real room
+packets, supplied normal/shiny sprite decoding, follower lifecycle, and explicit
+campaign, wager and release persistence. The ROM address audit validates 194 ROM
+mappings and 65 RAM references across all four supported cartridge layouts.
+
+Two native LeafGreen clients passed host-initiated manual checkpoints, cold
+reconnect with private teams/money/positions, nearby trade invitations and host
+loss returning the guest to the launcher. A separate 60-second hosting test
+created no automatic checkpoints or native save calls. The former timer caused
+1.2–1.4 second calls; those calls now occur only when saving explicitly. The
+largest measured host world-update call before manual Save was 28.35 ms in the
+diagnostic build (guest: 5.53 ms); this is not an overall frame-rate benchmark.
+
+Native follower acceptance covers initial stationary placement, X petting,
+half-size emotes, both settings transitions, faint replacement, an actual
+Pokemon Center exit and walking from Route 1 into Viridian. All 413 captured
+LeafGreen fade/black frames had zero overlay changes. Visible shiny Pokemon use
+the supplied art and enter battle with the matching shiny identity. All 386
+shiny PNGs and four animation PNGs match the supplied files byte-for-byte.
+
+The same native follower acceptance also passed on FireRed US 1.0. A native
+LeafGreen wager battle verified the winner received P101 net, the loser paid
+P101, both original parties/positions were restored, and native result messages
+were readable. No wager phase wrote a native game save.

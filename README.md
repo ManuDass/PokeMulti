@@ -55,7 +55,7 @@ wallet and personal progression. The host controls eligible reward sharing;
 money always stays individual. See [campaign rules](docs/CAMPAIGN.md).
 
 The host's in-game **Save** requests checkpoints from connected trainers.
-Automatic checkpoints also run at safe field boundaries. Guests return to the
+Saving is manual; save before leaving. Guests return to the
 launcher if the host disconnects and resume from their latest completed
 checkpoint when they reconnect. See [world saves](docs/WORLDS.md).
 
@@ -131,7 +131,7 @@ generated native game-code caches are excluded.
 
 ## Status and credits
 
-**0.26.4 · FRMP 20 · experimental.** FireRed US 1.0 and LeafGreen US 1.1
+**0.26.5 · FRMP 21 · experimental.** FireRed US 1.0 and LeafGreen US 1.1
 boot, play, save and reload.
 Local two-process checks cover room play, native battles and durable trades.
 Full campaign coverage, FireRed US 1.1/LeafGreen US 1.0 gameplay and

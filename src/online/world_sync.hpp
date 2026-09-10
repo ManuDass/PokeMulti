@@ -19,6 +19,7 @@ struct WildState {
     uint32_t id=0;uint16_t species=0;uint8_t level=0,elevation=0;
     int16_t x=0,y=0,pixelX=0,pixelY=0;
     uint8_t facing=1,frame=0;
+    bool shiny=false; // Rolled once by the map authority when this spawn is created.
 };
 struct WorldReport {
     game::CampState camp;

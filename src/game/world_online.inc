@@ -43,12 +43,12 @@ uint16_t campaignValue(uint16_t id){for(const auto& v:roomState.world.story)if(v
 std::filesystem::path campaignNativeSave;
 std::string observedCampaign;
 uint32_t observedCampaignSequence=0;
-bool campaignSaveRequested=false,campaignSaving=false,campaignOldManRefresh=false;
+bool campaignSaving=false,campaignOldManRefresh=false;
 uint64_t rewardRetryAt=0;
 unsigned lastWaitingRewards=0;
 void queueFieldNotice(std::string key,std::string text);
 void applyCampaignAccess();
-void saveCampaignProgress();
+void requestManualCheckpoint();
 // Match FireRed's save dialog before serializing any field checkpoint.
 // Otherwise a cold Continue can restore stale tiles from an earlier map.
 void prepareNativeFieldSave(){
@@ -99,9 +99,7 @@ void synchronizeStory(){
         std::vector<StoryValue> edits;
         for(const auto& v:roomState.world.story){
             const auto live=campaignReadProof(v.id);auto pending=pendingStory.find(v.id);
-            // A new personal victory still needs a native checkpoint when the
-            // campaign already has the same proof from another trainer.
-            if(personalStoryState(v.id)&&live!=observedStory[v.id])campaignSaveRequested=true;
+
             if(pending!=pendingStory.end()){
                 if(pending->second.revision==v.revision)continue;
                 pendingStory.erase(pending);
@@ -115,7 +113,7 @@ void synchronizeStory(){
             if(!personalStoryState(v.id)&&live!=v.value){if(v.id==0x4051&&live==0&&v.value>=1)campaignOldManRefresh=true;storyWrite(v.id,v.value);changed=true;}
             observedStory[v.id]=campaignReadProof(v.id);
         }
-        if(!edits.empty()){room->updateStory(edits);campaignSaveRequested=true;std::printf("ROOM_STORY_COMMIT keys=%zu\n",edits.size());}
+        if(!edits.empty()){room->updateStory(edits);std::printf("ROOM_STORY_COMMIT keys=%zu\n",edits.size());}
     }
     applyCampaignAccess();
     if(observedCampaign==roomState.campaign.id){
@@ -135,13 +133,13 @@ void synchronizeStory(){
         for(const auto& r:storyRewardRules)if(shareReward(r,roomState.rewardPolicy)&&campaignValue(r.progress)>=r.minimum&&!campaignRewardCollected(r)){
             if(callGuest(gameAddress(0x0809a084),r.item,1)){storyWrite(r.claimed,1);observedStory[r.claimed]=1;++delivered;}else ++waiting;
         }
-        if(delivered){campaignSaveRequested=true;rewardNotice="Campaign rewards were added to your Bag.";queueFieldNotice("campaign-rewards",rewardNotice);}
+        if(delivered){rewardNotice="Campaign rewards were added to your Bag.";queueFieldNotice("campaign-rewards",rewardNotice);}
         if(waiting&&waiting!=lastWaitingRewards)queueFieldNotice("campaign-bag","Some campaign rewards are waiting. Make room in your Bag to receive them.");
         if(requested&&!delivered&&!waiting)queueFieldNotice("campaign-rewards","Your campaign rewards are already collected.");
         lastWaitingRewards=waiting;
         if(delivered||waiting||requested)std::printf("ROOM_REWARDS delivered=%u waiting=%u\n",delivered,waiting);
     }
-    if(changed){campaignSaveRequested=true;refreshStoryObjects();callGuest(gameAddress(0x08069c38));callGuest(gameAddress(0x0805a684));}
+    if(changed){refreshStoryObjects();callGuest(gameAddress(0x08069c38));callGuest(gameAddress(0x0805a684));}
 }
 
 void captureNpcs(){
@@ -174,7 +172,12 @@ void syncWorldFrame(){
         static uint64_t testCommand=0;std::ifstream input(diagnosticPath.parent_path()/"test-world-command.txt");uint64_t seq=0;std::string action;unsigned id=0,value=0;
         if(input>>seq>>action>>std::hex>>id>>value&&seq!=testCommand){testCommand=seq;
             if(action=="camp")toggleCamp();
+            if(action=="face-follower")callGuest(fieldSymbol("ObjectEventTurn"),0x02036e38+36*r8(0x0203707d),movementFacing(local.followerX-local.pixelX,local.followerY-local.pixelY,local.facing));
+            if(action=="party-faint"&&id<6)bus()->write16(0x02024284+100*id+86,0);
             if(action=="gate-arrival")testGateArrival=true;
+            if(action=="party-shiny"&&id>0&&id<=411&&value<=1){
+                createVisibleWild(uint16_t(id),10,value!=0);for(unsigned i=0;i<100;++i)bus()->write8(0x02024284+i,r8(0x0202402c+i));
+            }
             if(action=="party-size"&&value<=6){
                 std::array<uint8_t,100> mon{};for(unsigned i=0;i<100;++i)mon[i]=r8(0x02024284+i);
                 for(unsigned slot=0;slot<6;++slot)for(unsigned i=0;i<100;++i)bus()->write8(0x02024284+slot*100+i,slot<value?mon[i]:0);
@@ -190,11 +193,11 @@ void syncWorldFrame(){
             if(action=="story"&&(id<0x900||(id>=0x4000&&id<0x4100)))storyWrite(uint16_t(id),uint16_t(value));
             if(action=="wager-cancel"&&roomState.wager.active())room->wagerEvent(roomState.wager.id,5);
             if(action=="invite")room->invite(uint8_t(id),online::Activity::Battle,value);
-            if(action=="fixture")fixtureRequest=value==9?"released-b":value==8?"released-a":value==7?"camp-b":value==6?"camp-a":value==5?"wager-b":value==4?"wager-a":value==3?"unique-eevee":value==2?"story-rival":value?"wild":"cable-a";
+            if(action=="fixture")fixtureRequest=value==11?"field-center-b":value==10?"follower-edge":value==9?"released-b":value==8?"released-a":value==7?"camp-b":value==6?"camp-a":value==5?"wager-b":value==4?"wager-a":value==3?"unique-eevee":value==2?"story-rival":value?"wild":"cable-a";
             if(action=="walk")walkTo(int(id),int(value));
             if(action=="chase")chaseWild();
             if(action=="rewards")rewardRequested=true;
-            if(action=="campaign-save")campaignSaveRequested=true;
+            if(action=="campaign-save"||action=="world-save")requestManualCheckpoint();
         }
     }
 #endif
@@ -205,7 +208,6 @@ void syncWorldFrame(){
     if(encounterToken&&now>encounterBegan+8&&!storyGateReserved()&&safeStory()&&pendingStory.empty()){
         room->releaseEncounter(encounterToken);encounterToken=0;finishStoryAttempt();
     }
-    saveCampaignProgress();
     if(const auto* m=sharedMap()){
         if(local.active&&!replaying()&&ownStarter())for(const auto& n:m->npcs){
             if(((n.owner==roomSlot||n.owner==255)&&!retryNpcPinned(n.localId))||roomPersonalObject(objectFlag(n.localId)))continue;
@@ -216,7 +218,7 @@ void syncWorldFrame(){
             if(flag)storyWrite(flag,saved); // presentation does not claim or rewrite story state
         }
         for(const auto& n:m->npcs){auto pose=n.pose;pose.spriteFrame=n.anim;pose.follower=n.command;pose.followerX=n.oldX;pose.followerY=n.oldY;pose.identity=(uint64_t(n.generation)<<8)|n.localId;const unsigned key=(unsigned(m->group)<<16)|(unsigned(m->map)<<8)|n.localId;npcMotion[key].push(pose,clockMs());}
-        for(const auto& w:m->wild){PlayerState pose{};pose.active=true;pose.mapGroup=m->group;pose.mapNumber=m->map;pose.elevation=w.elevation;pose.x=w.x;pose.y=w.y;pose.pixelX=w.pixelX;pose.pixelY=w.pixelY;pose.sequence=m->revision;pose.sampleTime=m->sampleTime;pose.identity=w.id;pose.follower=w.species;pose.followerFacing=w.facing;pose.followerFrame=w.frame;wildMotion[w.id].push(pose,clockMs());}
+        for(const auto& w:m->wild){PlayerState pose{};pose.active=true;pose.mapGroup=m->group;pose.mapNumber=m->map;pose.elevation=w.elevation;pose.x=w.x;pose.y=w.y;pose.pixelX=w.pixelX;pose.pixelY=w.pixelY;pose.sequence=m->revision;pose.sampleTime=m->sampleTime;pose.identity=w.id;pose.follower=w.species;pose.followerShiny=w.shiny;pose.followerFacing=w.facing;pose.followerFrame=w.frame;wildMotion[w.id].push(pose,clockMs());}
         std::erase_if(wildMotion,[&](const auto& v){return std::none_of(m->wild.begin(),m->wild.end(),[&](const auto& w){return w.id==v.first;});});
         std::erase_if(wild,[&](const Wild& w){return std::find(m->consumed.begin(),m->consumed.end(),w.id)!=m->consumed.end();});
         if(m->wildOwner!=roomSlot||lastWildOwner!=m->wildOwner){
@@ -231,7 +233,7 @@ bool worldOccupied(int x,int y){if(releasedOccupied(x,y)||battleOccupied(x,y)||c
 bool controlsWild(){if(!roomState.connected)return true;const auto* m=sharedMap();return local.follower&&m&&m->wildOwner==roomSlot;}
 void publishWorld(){
     if(!room||!roomState.connected)return;auto report=completedWorld;report.field=local.active;report.started=ownStarter();report.wildEnabled=local.follower!=0;report.sequence=local.sequence;report.camp=localCamp.state;report.battle=localBattle;
-    for(const auto& w:wild){const auto p=wildPose(w);report.wild.push_back({w.id,w.species,w.level,local.elevation,int16_t(w.x),int16_t(w.y),p.pixelX,p.pixelY,p.followerFacing,p.followerFrame});}
+    for(const auto& w:wild){const auto p=wildPose(w);report.wild.push_back({w.id,w.species,w.level,local.elevation,int16_t(w.x),int16_t(w.y),p.pixelX,p.pixelY,p.followerFacing,p.followerFrame,w.shiny});}
     if(!report.field){report.camp={};report.npcs.clear();report.wild.clear();}room->updateWorld(std::move(report));
 #ifdef FR_TEST_HARNESS
     if(now%60==0&&!diagnosticPath.empty()){std::ofstream f(diagnosticPath.parent_path()/"shared-world.txt");f<<"frame="<<now<<" connected="<<roomState.connected<<" ready="<<roomState.world.storyReady<<" applied="<<storyApplied<<" starter="<<ownStarter()<<" status="<<unsigned(r8(0x03000ea8))<<" locked="<<unsigned(r8(0x03000f9c))<<" replay="<<replaying()<<" lease="<<encounterToken<<" pending="<<pendingStory.size()<<" rewards="<<unclaimedStoryRewards().size()<<'\n';
@@ -280,8 +282,10 @@ bool claim(online::EncounterKind kind,uint32_t id,uint16_t condition=0){
     return true;
 }
 int interactedHook(uint32_t address,int,ArmCpuState* cpu){
-    if(guestCall||!roomState.connected||!local.active||replaying()||!ownStarter())return 0;
-    if(const auto challenge=interactWithTrainer())return guestReturn(cpu,challenge);
+    if(guestCall||!local.active||replaying()||!ownStarter())return 0;
+    if(roomState.connected)if(const auto challenge=interactWithTrainer())return guestReturn(cpu,challenge);
+    if(const auto reaction=interactWithFollower())return guestReturn(cpu,reaction);
+    if(!roomState.connected)return 0;
     const auto script=callGuest(address,cpu->R[0],cpu->R[1],cpu->R[2]);const auto selected=r8(0x03005074);
     if(!script)if(const auto retry=retryInteraction(selected,cpu->R[0]))return guestReturn(cpu,retry);
     if(const auto* unique=uniqueScript(script,gameRevision);unique&&!(roomState.rewardPolicy&ShareSpecialPokemon)){

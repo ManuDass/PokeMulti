@@ -61,7 +61,9 @@ def capture(name):
 def identity(r):
  return {'party':re.findall(r'^party=.*$',read(r),re.M),'balance':value(r,'balance','wallet-check.txt'),'position':re.search(r'map=\S+ tile=\S+',read(r,'world-check.txt'))[0]}
 try:
- start('a');start('b');wait(lambda:all(value(r,'ack','world-save-check.txt')>0 for r in processes),'Automatic host checkpoints')
+ start('a');start('b');wait(lambda:all(safe(r) for r in processes),'Initial field ready')
+ write(runtime['a']/'test-world-command.txt',f'{time.monotonic_ns()} world-save 0 0\n')
+ wait(lambda:all(value(r,'ack','world-save-check.txt')>0 for r in processes),'Explicit host checkpoints')
  capture('joined')
  if args.shiny:
   # Exercise the real World options UI on both clients before normal multiplayer acceptance.
@@ -119,7 +121,7 @@ try:
  # Only this test-owned host is terminated to simulate an abrupt server failure.
  processes['a'].terminate();processes['a'].wait(10)
  wait(lambda:processes['b'].poll() is not None,'Guest kept playing after host crash',20,False);assert processes['b'].returncode==0
- (base/'acceptance.json').write_text(json.dumps({'checks':['T trade invitation with native consent','chat input retains T typing','automatic host-owned private trainer checkpoints','host save requests guest save','graceful host close exits guest','cold reconnect preserves party, money and location','host crash exits guest without solo continuation'],'trainers':actual,'world':str(world)},indent=2))
+ (base/'acceptance.json').write_text(json.dumps({'checks':['T trade invitation with native consent','chat input retains T typing','manual host-owned private trainer checkpoints','host save requests guest save','graceful host close exits guest','cold reconnect preserves party, money and location','host crash exits guest without solo continuation'],'trainers':actual,'world':str(world)},indent=2))
  print('PASS: native world saves, T trade, cold resume and host-loss exit',flush=True)
 finally:
  for p in processes.values():

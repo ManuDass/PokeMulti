@@ -31,11 +31,11 @@ void CampaignBook::open(const std::filesystem::path& folder,bool fresh){
     }else if(!fresh&&std::filesystem::exists(active))throw std::runtime_error("The active campaign save is missing; choose New campaign to start separately");
     // Materialize a new record before publishing its active pointer. Older
     // campaigns are retained when the player explicitly starts another one.
-    if(!std::filesystem::exists(path))flush();
+    if(!std::filesystem::exists(path))flush(true);
     fr::replaceText(active,state.id+"\n");
 }
-void CampaignBook::flush()const{
-    if(path.empty())return;
+void CampaignBook::flush(bool force)const{
+    if(path.empty()||(manual&&!force))return;
     std::ostringstream out;out<<"PMCAM1 "<<state.id<<' '<<state.sequence<<' '<<saved.size()<<' '<<state.completed.size()<<'\n';
     for(const auto& [id,value]:saved)out<<id<<' '<<value<<'\n';
     for(const auto& c:state.completed)out<<c.objective<<' '<<c.sequence<<' '<<std::quoted(c.actor)<<'\n';

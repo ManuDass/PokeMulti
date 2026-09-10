@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 namespace fr::online {
-inline constexpr uint8_t RoomProtocolVersion=20;
+inline constexpr uint8_t RoomProtocolVersion=21;
 enum class Activity:uint8_t { Battle=1, Trade=2 };
 struct Peer {
     uint8_t slot=0;

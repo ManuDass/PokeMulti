@@ -105,10 +105,12 @@ int main(){try{
     host.updateWorld(socketEarly);guest.updateWorld(socketEarly);
     until([&]{return !host.status().world.maps.empty()&&!guest.status().world.maps.empty();});
     const auto earlyOwner=host.status().world.maps[0].wildOwner;
-    socketEarly.sequence=2;socketEarly.wild.push_back({123,16,3,0,12,10,192,160});
+    socketEarly.sequence=2;socketEarly.wild.push_back({123,16,3,0,12,10,192,160,1,0,true});
     if(earlyOwner==0)host.updateWorld(socketEarly);else guest.updateWorld(socketEarly);
     until([&]{return !guest.status().world.maps[0].wild.empty()&&!host.status().world.maps[0].wild.empty();});
     check(!host.status().world.storyReady&&!guest.status().world.storyReady,"Early socket world must not seed story");
+    host.setShinyRate(1);until([&]{return guest.status().shinyRate==1;});host.setShinyRate(8192);until([&]{return guest.status().shinyRate==8192;});
+    check(host.status().world.maps[0].wild[0].shiny&&guest.status().world.maps[0].wild[0].shiny,"Existing spawn identity survives live rate changes on both clients");
     const EncounterKey socketWild{3,19,EncounterKind::Wild,123};
     auto earlyFirst=std::async(std::launch::async,[&]{return host.claimEncounter(socketWild);});
     auto earlySecond=std::async(std::launch::async,[&]{return guest.claimEncounter(socketWild);});

@@ -29,10 +29,10 @@ void beginBattlePresence(uint16_t enemy,uint32_t wildId,const PlayerState* encou
     localBattle={};localBattle.id=++battleIdentity;if(!localBattle.id)localBattle.id=++battleIdentity;localBattle.trainer=pose;localBattle.trainer.pixelX+=pose.offsetX;localBattle.trainer.pixelY+=pose.offsetY;standFacing(localBattle.trainer,pose.facing);
     const bool safari=(flags&0x80)!=0;const unsigned count=(flags&1)?4:2;
     unsigned ours=0,theirs=0;
-    for(unsigned position=0;position<count;++position){const bool foe=position&1;if(!foe&&safari)continue;uint16_t species=foe?enemy:0;
+    for(unsigned position=0;position<count;++position){const bool foe=position&1;if(!foe&&safari)continue;uint16_t species=foe?enemy:0;bool shiny=foe&&enemy&&encounterPose?encounterPose->followerShiny:false;
         auto& slot=foe?theirs:ours;const unsigned partyCount=foe?6:std::min(6u,unsigned(r8(0x02024029)));const auto base=foe?0x0202402cu:0x02024284u;
-        while(!species&&slot<partyCount&&!(foe&&(flags&8))){const auto mon=base+100*slot++;if(!r16(mon+86))continue;const auto candidate=callGuest(gameAddress(0x0803fbe8),mon,11);if(candidate&&candidate<=411&&!callGuest(gameAddress(0x0803fbe8),mon,45))species=uint16_t(candidate);}
-        BattleMon mon{uint8_t(position),species,localBattle.trainer.pixelX,localBattle.trainer.pixelY,pose.facing,species!=0};
+        while(!species&&slot<partyCount&&!(foe&&(flags&8))){const auto mon=base+100*slot++;if(!r16(mon+86))continue;const auto candidate=callGuest(gameAddress(0x0803fbe8),mon,11);if(candidate&&candidate<=411&&!callGuest(gameAddress(0x0803fbe8),mon,45)){species=uint16_t(candidate);shiny=isShiny(r32(mon),r32(mon+4));}}
+        BattleMon mon{uint8_t(position),species,localBattle.trainer.pixelX,localBattle.trainer.pixelY,pose.facing,species!=0};mon.shiny=shiny;
         if(!foe&&position==0&&pose.followerVisible&&pose.follower==species){mon.x=pose.followerX;mon.y=pose.followerY;mon.facing=pose.followerFacing;mon.frame=pose.followerFrame;}
         else if(foe&&position==1&&encounterPose){mon.x=encounterPose->pixelX;mon.y=encounterPose->pixelY;mon.facing=encounterPose->followerFacing;mon.frame=encounterPose->followerFrame;}
         else if(foe){constexpr int dx[]{0,0,0,-1,1},dy[]{0,1,-1,0,0};mon.x=int16_t(std::clamp(int(mon.x)+dx[pose.facing]*32,0,8176));mon.y=int16_t(std::clamp(int(mon.y)+dy[pose.facing]*32,0,8176));}
@@ -68,7 +68,7 @@ void updateBattlePresence(){
                 if(count==2||count==4){bool ready=true;for(unsigned i=0;i<count;++i){const auto mon=0x02023be4+88*i;const unsigned pos=r8(0x02023bd6+i);if(pos>3){ready=false;break;}if(!(r32(0x02022b4c)&0x80)||pos&1)ready&=r16(mon)>0&&r16(mon)<=411&&r16(mon+44)>0;}
                     battleMonDataReady|=ready;
                     if(battleMonDataReady)for(unsigned i=0;i<count;++i){const auto mon=0x02023be4+88*i;const unsigned pos=r8(0x02023bd6+i),species=r16(mon);if(pos>3||!species||species>411)continue;
-                        for(auto& m:localBattle.mons)if(m.position==pos){m.species=uint16_t(species);m.visible=r16(mon+40)>0;}
+                        for(auto& m:localBattle.mons)if(m.position==pos){m.species=uint16_t(species);m.visible=r16(mon+40)>0;const auto partyIndex=r16(0x02023bce+2*i);if(partyIndex<6){const auto original=(pos&1?0x0202402cu:0x02024284u)+100*partyIndex;m.shiny=isShiny(r32(original),r32(original+4));}}
                     }
                 }
             }
@@ -89,7 +89,7 @@ void updateBattlePresence(){
     if(localBattle.id&&!diagnosticPath.empty()){static std::ofstream trace(diagnosticPath.parent_path()/"battle-motion.csv");trace<<now<<','<<localBattle.id<<','<<localBattle.trainer.pixelX<<','<<localBattle.trainer.pixelY<<','<<localBattle.settled<<','<<localBattle.returning;for(const auto& m:localBattle.mons)trace<<','<<unsigned(m.position)<<','<<m.x<<','<<m.y<<','<<unsigned(m.facing)<<','<<m.walking;trace<<'\n';if(now%30==0)trace.flush();}
     if(now%30==0&&!diagnosticPath.empty()){
         std::ofstream f(diagnosticPath.parent_path()/"battle-presence.txt");f<<"frame="<<now<<" field="<<local.active<<" entered="<<battleEntered<<" ready="<<battleMonDataReady<<" local="<<localBattle.id<<" main="<<std::hex<<(r32(0x030030f4)&~1u)<<std::dec<<" outcome="<<unsigned(r8(0x02023e8a))<<'\n';
-        for(unsigned slot=0;slot<MaxRoomPlayers;++slot){const auto& b=roomState.world.battles[slot];if(!b.id)continue;f<<"battle="<<slot<<" id="<<b.id<<" map="<<unsigned(b.trainer.mapGroup)<<','<<unsigned(b.trainer.mapNumber)<<" trainer="<<b.trainer.x<<','<<b.trainer.y<<" pixel="<<b.trainer.pixelX<<','<<b.trainer.pixelY<<" settled="<<b.settled<<" returning="<<b.returning<<" tick="<<b.tick<<'\n';for(const auto& m:b.mons)f<<"mon="<<slot<<" position="<<unsigned(m.position)<<" species="<<m.species<<" visible="<<m.visible<<" pixel="<<m.x<<','<<m.y<<" face="<<unsigned(m.facing)<<'\n';}
+        for(unsigned slot=0;slot<MaxRoomPlayers;++slot){const auto& b=roomState.world.battles[slot];if(!b.id)continue;f<<"battle="<<slot<<" id="<<b.id<<" map="<<unsigned(b.trainer.mapGroup)<<','<<unsigned(b.trainer.mapNumber)<<" trainer="<<b.trainer.x<<','<<b.trainer.y<<" pixel="<<b.trainer.pixelX<<','<<b.trainer.pixelY<<" settled="<<b.settled<<" returning="<<b.returning<<" tick="<<b.tick<<'\n';for(const auto& m:b.mons)f<<"mon="<<slot<<" position="<<unsigned(m.position)<<" species="<<m.species<<" visible="<<m.visible<<" shiny="<<m.shiny<<" pixel="<<m.x<<','<<m.y<<" face="<<unsigned(m.facing)<<'\n';}
     }
 #endif
 }

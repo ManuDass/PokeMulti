@@ -4,7 +4,7 @@
 #include <functional>
 #include <set>
 namespace fr::game {
-struct BattleMon {uint8_t position=0;uint16_t species=0;int16_t x=0,y=0;uint8_t facing=1;bool visible=true;uint8_t frame=0;bool walking=false;};
+struct BattleMon {uint8_t position=0;uint16_t species=0;int16_t x=0,y=0;uint8_t facing=1;bool visible=true;uint8_t frame=0;bool walking=false;bool shiny=false;};
 struct BattlePresence {uint32_t id=0,tick=0;PlayerState trainer;std::vector<BattleMon> mons;bool settled=true,returning=false;};
 inline int battleHop(uint32_t tick,unsigned phase=0){const unsigned t=(tick+phase)%48;return t<16?-int((t<8?t:16-t)/2):0;}
 inline void standFacing(PlayerState& p,unsigned face){p.facing=uint8_t(face);p.spriteFrame=uint8_t(face==2?1:face>=3?2:0);p.flip=uint8_t(face==4?1:0);p.offsetX=p.offsetY=0;p.followerVisible=false;}
@@ -16,6 +16,6 @@ inline bool validBattle(const BattlePresence& b){
     return true;
 }
 inline PlayerState battleMonPose(const BattlePresence& battle,const BattleMon& mon,unsigned slot){
-    PlayerState p=battle.trainer;p.active=mon.visible;p.pixelX=mon.x;p.pixelY=mon.y;p.x=int16_t(mon.x/16);p.y=int16_t(mon.y/16);p.follower=mon.species;p.followerFacing=mon.facing;p.followerFrame=mon.walking?mon.frame:0;p.offsetX=0;p.offsetY=int8_t(battle.settled&&!battle.returning?battleHop(battle.tick,mon.position*12):0);p.identity=(uint64_t(battle.id)<<8)|slot;return p;
+    PlayerState p=battle.trainer;p.active=mon.visible;p.pixelX=mon.x;p.pixelY=mon.y;p.x=int16_t(mon.x/16);p.y=int16_t(mon.y/16);p.follower=mon.species;p.followerShiny=mon.shiny;p.followerFacing=mon.facing;p.followerFrame=mon.walking?mon.frame:0;p.offsetX=0;p.offsetY=int8_t(battle.settled&&!battle.returning?battleHop(battle.tick,mon.position*12):0);p.identity=(uint64_t(battle.id)<<8)|slot;return p;
 }
 }

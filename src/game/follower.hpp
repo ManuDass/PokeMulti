@@ -18,9 +18,18 @@ class FollowerPath {
     uint8_t lastFacing=1,lastFrame=0;int still=0;
 public:
     void clear(){*this={};}
+    bool empty()const{return trail.empty();}
+    void seed(const PlayerState& p,int x,int y){
+        clear();const float gap=std::hypot(float(p.pixelX-x),float(p.pixelY-y));
+        if(gap<1||gap>32)return;
+        distance=16;trail.push_back({float(x),float(y),0});trail.push_back({float(p.pixelX),float(p.pixelY),distance});
+        lastX=x;lastY=y;lastFacing=p.facing;
+    }
+    void translate(int dx,int dy){for(auto& p:trail){p.x+=dx;p.y+=dy;}lastX+=dx;lastY+=dy;}
+
     void update(PlayerState& p,bool allowed){
         p.followerVisible=false;
-        if(!p.active){clear();return;}
+        if(!p.active)return; // Field fades do not discard the walking history.
         if(trail.empty())trail.push_back({float(p.pixelX),float(p.pixelY),0});
         const auto last=trail.back();const float moved=std::hypot(p.pixelX-last.x,p.pixelY-last.y);
         if(moved>32){clear();trail.push_back({float(p.pixelX),float(p.pixelY),0});return;}
