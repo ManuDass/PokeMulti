@@ -1,3 +1,11 @@
+## 0.26.9 — doorway follower fix
+
+Followers now emerge from the same doorway behind the trainer instead of sliding diagonally or facing backward after a building exit. The original sprites, ledge jumps and manual saves are unchanged.
+
+Use **Update program** in the launcher. Existing profiles and worlds are preserved. This update keeps **FRMP 23**, compatible with 0.26.8 rooms using the same game and ROM revision.
+
+## 0.26.8
+
 Download **PokeMulti-Setup.exe** and run the installation wizard. Existing Windows
 installations can use **Update program → Check for updates → Download & restart**.
 

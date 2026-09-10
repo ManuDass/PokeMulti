@@ -22,8 +22,10 @@ public:
     bool empty()const{return trail.empty();}
     void seed(const PlayerState& p,int x,int y){
         clear();const float gap=std::hypot(float(p.pixelX-x),float(p.pixelY-y));
-        if(gap<1||gap>32)return;
-        distance=16;trail.push_back({float(x),float(y),0});trail.push_back({float(p.pixelX),float(p.pixelY),distance});
+        // Arrival can be partway through a native door step. Keep its true
+        // distance and never invent a diagonal segment from a nearby tile.
+        if(gap>32||(x!=p.pixelX&&y!=p.pixelY))return;
+        distance=gap;trail.push_back({float(x),float(y),0});trail.push_back({float(p.pixelX),float(p.pixelY),distance});
         lastX=x;lastY=y;lastFacing=p.facing;
     }
     void translate(int dx,int dy){for(auto& p:trail){p.x+=dx;p.y+=dy;}lastX+=dx;lastY+=dy;}

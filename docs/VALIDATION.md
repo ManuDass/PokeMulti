@@ -171,3 +171,12 @@ The first Windows release CI attempt exposed an existing test setup race: seeing
 
 
 Windows v0.26.8 published successfully after all CI checks passed (run 34428962875, attempt 2). The corrected setup fixture also passed 60 consecutive local runs. The shipped 0.26.4 updater downloaded the public 0.26.8 ZIP, verified the full manifest, applied the update, restarted with the same isolated profile, and preserved both profile data and the nested synthetic world-save hash (`cache/release-0268-public-update.log`). Installer, portable ZIP and SHA-256 checksums are publicly available. Main now links both published Mac 0.27.3 previews; no ROM, real save or credential was published.
+
+
+## Doorway follower fix (0.26.9)
+
+The native Center exit reproduced a side seed at `(400,432)` while the trainer was already at `(416,417)`, followed by diagonal/backward interpolation. Arrival now anchors at the reciprocal native doorway `(416,416)` and uses the actual short path length. Seeds cannot invent diagonal segments. Regression tests include exact-door, partial-step and side-facing arrivals, plus existing ledge and connected-route checks.
+
+All 54 test groups passed after the fix. Native two-client exit checks passed for LeafGreen (`world-native-2ab0295e7e79`) and FireRed (`world-native-01ef9ca81327`): constant door column, correct facing/spacing, no snap, and zero overlay changes during fades. Host and guest screenshots were inspected. Original assets and save logic were not edited. FRMP remains 23.
+
+The versioned 0.26.9 build also passed all 54 tests. Final native acceptance (world-native-798b48b529af) additionally confirmed continued normal trailing after leaving the doorway. The package audit excluded ROMs, real saves, native caches and test executables.
