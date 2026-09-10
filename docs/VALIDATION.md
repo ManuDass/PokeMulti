@@ -168,3 +168,6 @@ Final camp acceptance (`world-native-ced21af14dda`) passed on 0.26.8: native X t
 Mac preview 0.27.3 passed Apple Silicon and Intel CI at `3210b00` (run 34428881969), architecture checks, original-art byte comparisons, and package privacy checks; both downloads were published. Physical Mac gameplay remains unverified.
 
 The first Windows release CI attempt exposed an existing test setup race: seeing the host's NPC did not prove the guest's `started=true` report had arrived. The shared-world test now waits for a guest-only actor before racing encounter claims. This changes test synchronization only; runtime files and the v0.26.8 tag remain unchanged. All production feature checks above passed before the release retry.
+
+
+Windows v0.26.8 published successfully after all CI checks passed (run 34428962875, attempt 2). The corrected setup fixture also passed 60 consecutive local runs. The shipped 0.26.4 updater downloaded the public 0.26.8 ZIP, verified the full manifest, applied the update, restarted with the same isolated profile, and preserved both profile data and the nested synthetic world-save hash (`cache/release-0268-public-update.log`). Installer, portable ZIP and SHA-256 checksums are publicly available. Main now links both published Mac 0.27.3 previews; no ROM, real save or credential was published.
