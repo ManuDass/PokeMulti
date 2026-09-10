@@ -69,7 +69,7 @@ since the last completed safe checkpoint.
 
 The separate macOS preview branch passed native Intel and Apple Silicon builds,
 CTest, ROM-free launcher and packaged-app smoke checks, and ad-hoc signature
-verification in GitHub Actions run `34421232551` for preview 0.27.1. Portable
+verification in GitHub Actions run `34426008007` for preview 0.27.2. Portable
 tests also cover profile-preserving ROM switches, shiny traits, world isolation
 and host/guest shiny settings. Both LeafGreen cartridge
 previews were visually reviewed, and the packaged artwork matches the supplied
@@ -121,8 +121,8 @@ renderer clears its host-object layer before drawing one current cell per follow
 
 Question uses top-row cells 1-4. Exclamation uses top-row cell 5 followed by
 bottom-row cells 1-5. Each plays once before holding its final expression, then
-clears. Nearby X interactions cycle through heart, happy, music, curious and
-surprised reactions. Network validation accepts and transports all five kinds.
+clears. These two reactions participate in the twelve-reaction X interaction
+cycle. Network validation accepts and transports all twelve kinds.
 
 Emote2 pairs have a 16-tick animation duration: A, B, A, B at four ticks
 per cell. Tests verify every pair clears before a third loop. All twelve reaction
@@ -133,3 +133,22 @@ All five pairs play A, B, A, B and clear before a third loop. Tests cover every
 cell transition and the cross-row pair. Music uses Emote2 top 1+bottom 1 as
 confirmed by the asset owner. Each X interaction selects one of the twelve
 original expressions, with matching native dialogue and a Pokemon cry.
+
+Final 0.26.7 validation: all 54 Windows CTest groups passed. Two connected
+LeafGreen clients completed all twelve native X reactions. The final Windows
+package audit found 1,335 installed files and no ROMs, personal saves, native
+caches or test executables.
+
+All twelve final native emote previews were reviewed at their active animation
+frames, including both cross-row pairs. Apple Silicon and Intel preview 0.27.2
+passed CI, package/architecture checks, and byte-for-byte original animation
+and shiny-art checks before their downloads were published.
+
+## Camp party interactions (0.26.8 / FRMP 23)
+
+X selects the nearby camp party member in front of the trainer, independently
+of the follower setting. The chosen member pauses without snapping mid-step,
+faces the trainer, and resumes roaming after its reaction. Other party members
+continue moving. Camp packets carry each member's reaction kind and sequence.
+Tests cover proximity, exclusive targeting, pause/resume motion, invalid input,
+and reaction replication to both current and late-joining clients.

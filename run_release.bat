@@ -1,8 +1,8 @@
 @echo off
 cd /d "%~dp0"
-if not exist "dist\PokeMulti-0.27.2\pokemulti.exe" (
-  echo Build and package version 0.27.2 first.
+if not exist "dist\PokeMulti-0.27.3\pokemulti.exe" (
+  echo Build and package version 0.27.3 first.
   pause
   exit /b 1
 )
-start "" "%~dp0dist\PokeMulti-0.27.2\pokemulti.exe" %*
+start "" "%~dp0dist\PokeMulti-0.27.3\pokemulti.exe" %*

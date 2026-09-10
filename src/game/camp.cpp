@@ -1,9 +1,18 @@
 #include "game/camp.hpp"
+#include "game/world.hpp"
 #include <algorithm>
 #include <cmath>
 #include <deque>
 #include <set>
 namespace fr::game {
+int campInteractionTarget(const CampState& c,int x,int y,unsigned facing){
+    if(!c.id||facing<1||facing>4)return -1;
+    constexpr int dx[]{0,0,0,-1,1},dy[]{0,1,-1,0,0};x+=16*dx[facing];y+=16*dy[facing];
+    int target=-1,distance=13;
+    for(unsigned i=0;i<c.party.size();++i){const auto& p=c.party[i];const int d=std::abs(p.x-x)+std::abs(p.y-y);
+        if(!p.emote&&d<distance){distance=d;target=int(i);}}
+    return target;
+}
 bool campContains(const CampState& c,int x,int y){return c.id&&x>=c.x&&x<c.x+CampWidth&&y>=c.y&&y<c.y+CampHeight;}
 bool campsOverlap(const CampState& a,const CampState& b){return a.id&&b.id&&a.group==b.group&&a.map==b.map&&a.x<b.x+CampWidth&&b.x<a.x+CampWidth&&a.y<b.y+CampHeight&&b.y<a.y+CampHeight;}
 bool campWalkable(const CampState& c,int x,int y){
@@ -41,7 +50,7 @@ bool validCamp(const CampState& c){
     }}
     if(!campHasEntrance(c)||cells<c.party.size()+2||campGround(c,[&](int x,int y){return campWalkable(c,x,y);}).size()!=cells)return false;
     for(const auto& p:c.party){const int dx=p.x-(c.x*16+24),dy=p.y-(c.y*16+16);
-        if(!p.species||p.species>411||p.x<0||p.y<0||p.x>8176||p.y>8176||dx*dx+dy*dy>CampRadius*CampRadius*256||!campWalkable(c,p.x/16,p.y/16)||p.facing<1||p.facing>4||p.frame>3||p.mood>2)return false;
+        if(!p.species||p.species>411||p.x<0||p.y<0||p.x>8176||p.y>8176||dx*dx+dy*dy>CampRadius*CampRadius*256||!campWalkable(c,p.x/16,p.y/16)||p.facing<1||p.facing>4||p.frame>3||p.mood>2||p.emote>FollowerReactionCount)return false;
     }return true;
 }
 bool campGrass(uint8_t mapType,bool cave,bool general,uint16_t tile,uint16_t behavior,uint8_t elevation){
@@ -72,16 +81,24 @@ bool CampSimulation::start(CampState camp,const std::vector<uint16_t>& species,c
     for(size_t i=0;i<species.size();++i){const auto p=ground[i];camp.party.push_back({species[i],int16_t(p.x*16),int16_t(p.y*16),1});steps[i]={p.x,p.y,p.x,p.y,0,0,uint32_t(15+i*12)};}
     if(!validCamp(camp))return false;state=std::move(camp);return true;
 }
+bool CampSimulation::interact(unsigned index,uint8_t facing,uint8_t emote,unsigned duration){
+    if(!state.id||index>=state.party.size()||facing<1||facing>4||!emote||emote>FollowerReactionCount||!duration||duration>120)return false;
+    auto& p=state.party[index];auto& step=steps[index];if(p.emote)return false;
+    // Freeze the current sub-tile position, then resume the same walking step.
+    step.begin+=duration;step.end+=duration;step.pause+=duration;step.reactionUntil=state.tick+duration;
+    p.facing=facing;p.frame=0;p.mood=0;p.emote=emote;++p.emoteSequence;return true;
+}
 void CampSimulation::update(const CampTileCheck& free){
     if(!state.id)return;++state.tick;const auto tick=state.tick;
     auto available=[&](int x,int y,size_t self){const int dx=x*16-(state.x*16+24),dy=y*16-(state.y*16+16);if(dx*dx+dy*dy>CampRadius*CampRadius*256||!campWalkable(state,x,y)||!free(x,y))return false;for(size_t j=0;j<state.party.size();++j)if(j!=self&&((steps[j].x==x&&steps[j].y==y)||(steps[j].tx==x&&steps[j].ty==y)))return false;return true;};
     auto facing=[](int dx,int dy){return uint8_t(dx<0?3:dx>0?4:dy<0?2:1);};
     for(size_t i=0;i<state.party.size();++i){auto& s=steps[i];auto& p=state.party[i];
-        if(tick<s.end){const double t=double(tick-s.begin)/double(s.end-s.begin);p.x=int16_t(std::lround((s.x+(s.tx-s.x)*t)*16));p.y=int16_t(std::lround((s.y+(s.ty-s.y)*t)*16));p.frame=uint8_t((tick/8)%4);continue;}
+        if(p.emote&&tick<s.reactionUntil){p.frame=0;continue;}p.emote=0;
+        if(tick<s.end){const double t=double(tick-s.begin)/double(s.end-s.begin);p.x=int16_t(std::lround((s.x+(s.tx-s.x)*t)*16));p.y=int16_t(std::lround((s.y+(s.ty-s.y)*t)*16));p.facing=facing(s.tx-s.x,s.ty-s.y);p.frame=uint8_t((tick/8)%4);continue;}
         s.x=s.tx;s.y=s.ty;p.x=int16_t(s.x*16);p.y=int16_t(s.y*16);p.frame=0;
         if(tick<s.pause)continue;p.mood=0;
         bool playing=false;
-        for(size_t j=i+1;j<state.party.size();++j){auto& other=steps[j];if(tick<other.end||state.party[j].mood||std::abs(s.x-other.x)+std::abs(s.y-other.y)!=1||random()%3)continue;
+        for(size_t j=i+1;j<state.party.size();++j){auto& other=steps[j];if(tick<other.end||state.party[j].emote||state.party[j].mood||std::abs(s.x-other.x)+std::abs(s.y-other.y)!=1||random()%3)continue;
             p.facing=facing(other.x-s.x,other.y-s.y);state.party[j].facing=facing(s.x-other.x,s.y-other.y);p.mood=state.party[j].mood=uint8_t(1+random()%2);s.pause=other.pause=tick+50;playing=true;break;}
         if(playing)continue;
         constexpr int dx[]{0,0,-1,1},dy[]{1,-1,0,0};const unsigned first=random()%4;bool moved=false;

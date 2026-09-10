@@ -15,11 +15,11 @@ The [Releases page](https://github.com/ManuDass/PokeMulti/releases/latest) also
 provides a portable Windows ZIP. Extract the whole folder and open `pokemulti.exe`.
 GitHub's **Code → Download ZIP** contains source code, not the installed game.
 
-**Mac preview:** [Apple Silicon (.dmg)](https://github.com/ManuDass/PokeMulti/releases/download/v0.27.1-mac-preview/PokeMulti-0.27.1-macOS-arm64.dmg) · [Intel (.dmg)](https://github.com/ManuDass/PokeMulti/releases/download/v0.27.1-mac-preview/PokeMulti-0.27.1-macOS-x86_64.dmg)
+**Mac preview:** [Apple Silicon (.dmg)](https://github.com/ManuDass/PokeMulti/releases/download/v0.27.2-mac-preview/PokeMulti-0.27.2-macOS-arm64.dmg) · [Intel (.dmg)](https://github.com/ManuDass/PokeMulti/releases/download/v0.27.2-mac-preview/PokeMulti-0.27.2-macOS-x86_64.dmg)
 
 Open the DMG and drag PokéMulti to Applications. Mac builds are previews: gameplay
 on physical Macs remains unverified, and updates are manual. Read the
-[Mac preview notes](https://github.com/ManuDass/PokeMulti/releases/tag/v0.27.1-mac-preview)
+[Mac preview notes](https://github.com/ManuDass/PokeMulti/releases/tag/v0.27.2-mac-preview)
 for first-launch instructions and current limitations.
 
 ## Get started
@@ -131,7 +131,7 @@ generated native game-code caches are excluded.
 
 ## Status and credits
 
-**0.26.7 · FRMP 22 · experimental.** FireRed US 1.0 and LeafGreen US 1.1
+**0.26.8 · FRMP 23 · experimental.** FireRed US 1.0 and LeafGreen US 1.1
 boot, play, save and reload.
 Local two-process checks cover room play, native battles and durable trades.
 Full campaign coverage, FireRed US 1.1/LeafGreen US 1.0 gameplay and

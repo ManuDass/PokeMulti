@@ -1,6 +1,9 @@
 Download **PokeMulti-Setup.exe** and run the installation wizard. Existing Windows
 installations can use **Update program → Check for updates → Download & restart**.
 
+- Face a nearby party Pokemon in your camp and press **X** to interact. It
+  turns toward you, pauses for its cry and emote, then resumes roaming. Nearby
+  players see the same reaction. This also works with Party follower disabled.
 - Send-out uses the four populated top-row animation cells; return uses only
   the three populated bottom-row cells. Each frame replaces the previous cell.
 - Follower interactions also include the two distinct question and exclamation
@@ -22,7 +25,7 @@ installations can use **Update program → Check for updates → Download & rest
   the periodic save calls responsible for hosting pauses. Save before leaving;
   **Exit world** does not start a save.
 
-Everyone in a room must update to **FRMP 22**. Existing saves remain compatible;
+Everyone in a room must update to **FRMP 23**. Existing saves remain compatible;
 rooms still require matching game and ROM revisions.
 
 Windows 10/11 x64. **No ROM included:** supply your own unmodified English

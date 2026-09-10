@@ -6,7 +6,7 @@
 #include <vector>
 namespace fr::game {
 inline constexpr int CampWidth=4,CampHeight=3,CampRadius=5,CampSpan=CampRadius*2+1;
-struct CampMon {uint16_t species=0;int16_t x=0,y=0;uint8_t facing=1,frame=0,mood=0;bool shiny=false;};
+struct CampMon {uint16_t species=0;int16_t x=0,y=0;uint8_t facing=1,frame=0,mood=0;bool shiny=false;uint16_t emoteSequence=0;uint8_t emote=0;};
 struct CampState {
     uint32_t id=0,sequence=0,sampleTime=0,tick=0;
     uint8_t group=0,map=0,elevation=0;
@@ -16,6 +16,7 @@ struct CampState {
 };
 struct CampCell {int x=0,y=0;auto operator<=>(const CampCell&) const=default;};
 using CampTileCheck=std::function<bool(int,int)>;
+int campInteractionTarget(const CampState&,int pixelX,int pixelY,unsigned facing);
 bool campContains(const CampState&,int x,int y);
 bool campsOverlap(const CampState&,const CampState&);
 bool validCamp(const CampState&);
@@ -28,13 +29,14 @@ struct CampEdge {CampCell cell;uint8_t direction=0;}; // down, up, left, right
 std::vector<CampEdge> campPerimeter(const CampState&);
 bool campFootprint(const CampState&,const CampTileCheck&);
 class CampSimulation {
-    struct Step {int x=0,y=0,tx=0,ty=0;uint32_t begin=0,end=0,pause=0;};
+    struct Step {int x=0,y=0,tx=0,ty=0;uint32_t begin=0,end=0,pause=0,reactionUntil=0;};
     std::array<Step,6> steps{};
     uint32_t seed=1;
     uint32_t random();
 public:
     CampState state;
     bool start(CampState camp,const std::vector<uint16_t>& party,const std::vector<CampCell>& ground);
+    bool interact(unsigned index,uint8_t facing,uint8_t emote,unsigned duration);
     void update(const CampTileCheck& free);
 };
 }

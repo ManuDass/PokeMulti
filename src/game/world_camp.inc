@@ -149,7 +149,7 @@ void drawCamps(uint8_t* rgb,unsigned w,unsigned h,int dx,int dy){
         for(unsigned i=0;i<c.party.size();++i){const auto& mon=c.party[i];PlayerState p;
             if(slot==roomSlot){p.active=true;p.pixelX=mon.x;p.pixelY=mon.y;p.follower=mon.species;p.followerShiny=mon.shiny;p.followerFacing=mon.facing;p.followerFrame=mon.mood==2?uint8_t((c.tick/12)%4):mon.frame;p.offsetY=mon.mood==1?int8_t(-std::abs(4-int(c.tick%16)/2)):0;}
             else p=campMotion[slot][i].sample(clockMs());if(!p.active)continue;
-            drawingKey=spriteKey(c.elevation,p.pixelY+dy+16,96+slot*6+i);follower(rgb,w,h,p,p.pixelX+dx+8,p.pixelY+dy+p.offsetY);
+            drawingKey=spriteKey(c.elevation,p.pixelY+dy+16,96+slot*6+i);drawCampReaction(mon,p,slot,i,c.id,p.pixelX+dx+8,p.pixelY+dy+p.offsetY);follower(rgb,w,h,p,p.pixelX+dx+8,p.pixelY+dy+p.offsetY);
         }
     }
 }

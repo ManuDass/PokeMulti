@@ -605,6 +605,7 @@ int trainer(uint8_t* rgb,unsigned w,unsigned h,const PlayerState& peer,int x,int
     if(!validRom(frames,8*(frame+1)))return int(h);
     return blit(rgb,w,h,r32(frames+frame*8),pal,sw,sh,x-sw/2+peer.offsetX,y+16-sh+peer.offsetY,(peer.flip&1)!=0,(peer.flip&2)!=0,paint);
 }
+void drawCampReaction(const CampMon&,const PlayerState&,unsigned,unsigned,uint32_t,int,int);
 #include "world_camp.inc"
 bool departingSlot(unsigned slot);
 #include "world_battle.inc"

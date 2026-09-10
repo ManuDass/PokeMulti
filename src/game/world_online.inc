@@ -173,6 +173,7 @@ void syncWorldFrame(){
         if(input>>seq>>action>>std::hex>>id>>value&&seq!=testCommand){testCommand=seq;
             if(action=="camp")toggleCamp();
             if(action=="face-follower")callGuest(fieldSymbol("ObjectEventTurn"),0x02036e38+36*r8(0x0203707d),movementFacing(local.followerX-local.pixelX,local.followerY-local.pixelY,local.facing));
+            if(action=="face-camp"&&id<localCamp.state.party.size()){const auto& p=localCamp.state.party[id];callGuest(fieldSymbol("ObjectEventTurn"),0x02036e38+36*r8(0x0203707d),movementFacing(p.x-local.pixelX,p.y-local.pixelY,local.facing));}
             if(action=="party-faint"&&id<6)bus()->write16(0x02024284+100*id+86,0);
             if(action=="gate-arrival")testGateArrival=true;
             if(action=="party-shiny"&&id>0&&id<=411&&value<=1){
