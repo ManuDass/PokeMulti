@@ -116,3 +116,25 @@ without returning to the top row. Tests reject blank or opposite-row cells and
 verify that finished effects select no cell. The supplied PNG remains unchanged.
 The runtime refreshes the native framebuffer before composition, and the world
 renderer clears its host-object layer before drawing one current cell per follower.
+
+## Emote1 sequences (0.26.7 / FRMP 22)
+
+Question uses top-row cells 1-4. Exclamation uses top-row cell 5 followed by
+bottom-row cells 1-5. Each plays once before holding its final expression, then
+clears. These two reactions participate in the twelve-reaction X interaction
+cycle. Network validation accepts and transports all twelve kinds.
+
+Emote2 pairs have a 16-tick animation duration: A, B, A, B at four ticks
+per cell. Tests verify every pair clears before a third loop. All twelve reaction
+kinds are carried in FRMP 22; the supplied source images are unchanged.
+
+Emote3 uses top 1+2, top 3+4, top 5+bottom 5, bottom 1+2, and bottom 3+4.
+All five pairs play A, B, A, B and clear before a third loop. Tests cover every
+cell transition and the cross-row pair. Music uses Emote2 top 1+bottom 1 as
+confirmed by the asset owner. Each X interaction selects one of the twelve
+original expressions, with matching native dialogue and a Pokemon cry.
+
+Final 0.26.7 validation: all 54 Windows CTest groups passed. Two connected
+LeafGreen clients completed all twelve native X reactions. The final Windows
+package audit found 1,335 installed files and no ROMs, personal saves, native
+caches or test executables.

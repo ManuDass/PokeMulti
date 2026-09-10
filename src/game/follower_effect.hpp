@@ -9,9 +9,22 @@ inline int followerBallPattern(bool recall,unsigned frame){
     constexpr std::array<int,10> in{-1,5,6,6,7,7,7,7,7,7},out{-1,0,0,0,1,1,2,2,3,3};
     return frame<10?(recall?in[frame]:out[frame]):-1;
 }
+inline unsigned followerEmoteSheet(unsigned kind){return kind>=8?3:kind==4||kind==5?2:1;}
+inline unsigned followerEmoteFrames(unsigned kind){return kind==4||kind==5?24:kind>=1&&kind<=FollowerReactionCount?16:0;}
 inline int followerEmotePattern(unsigned kind,unsigned frame){
-    constexpr int patterns[3][2]{{9,8},{1,2},{5,0}};
-    return kind>=1&&kind<=3&&frame<24?patterns[kind-1][(frame/4)%2]:-1;
+    if(frame>=followerEmoteFrames(kind))return -1;
+    // Emote1: question is top 1..4; exclamation is top 5 then bottom 1..5.
+    // Pop once in source order, then hold the final expression.
+    if(kind==4)return int(frame/2<4?frame/2:3);
+    if(kind==5)return 4+int(frame/2<6?frame/2:5);
+    if(kind>=8){
+        // Emote3: top 1+2, top 3+4, top 5+bottom 5, bottom 1+2, bottom 3+4.
+        constexpr int pairs[5][2]{{0,1},{2,3},{4,9},{5,6},{7,8}};
+        return pairs[kind-8][(frame/4)%2];
+    }
+    // Emote2 holds each cell for four ticks: A, B, A, B, then clears.
+    constexpr int patterns[8][2]{{-1,-1},{8,9},{1,2},{0,5},{-1,-1},{-1,-1},{6,7},{3,4}};
+    return patterns[kind][(frame/4)%2];
 }
 class FollowerVisual {
 public:

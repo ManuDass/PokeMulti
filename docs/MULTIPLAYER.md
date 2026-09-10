@@ -143,7 +143,7 @@ cannot be shiny under the native rules; only then is a compatible nature used.
 The calculation follows the [original generation rules](https://github.com/pret/pokefirered/blob/master/src/pokemon.c)
 and [shiny constants](https://github.com/pret/pokefirered/blob/master/include/constants/pokemon.h).
 
-## Followers and shiny presentation (0.26.5 / FRMP 21)
+## Followers and shiny presentation (0.26.7 / FRMP 22)
 
 Visible wild Pokemon receive a shiny identity at spawn. The map authority sends
 that identity to all clients, and the native encounter keeps it even if the host
@@ -159,6 +159,6 @@ animated heart, happy or music emote. Emotes, send-out and recall effects displa
 nearest-neighbor sampling. PNGs are unchanged. Effects use normal world object
 composition; native UI, foreground terrain and transition fades retain priority.
 
-All players must update because FRMP 21 adds shiny and follower reaction state.
+All players must update because FRMP 22 includes shiny state and all twelve follower reaction kinds.
 Save files remain compatible. Saving is manual; the host's Save includes guests
 once they reach a safe field boundary. Exit does not create another checkpoint.

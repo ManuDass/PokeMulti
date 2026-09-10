@@ -131,7 +131,7 @@ generated native game-code caches are excluded.
 
 ## Status and credits
 
-**0.26.6 · FRMP 21 · experimental.** FireRed US 1.0 and LeafGreen US 1.1
+**0.26.7 · FRMP 22 · experimental.** FireRed US 1.0 and LeafGreen US 1.1
 boot, play, save and reload.
 Local two-process checks cover room play, native battles and durable trades.
 Full campaign coverage, FireRed US 1.1/LeafGreen US 1.0 gameplay and

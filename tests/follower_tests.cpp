@@ -21,13 +21,39 @@ int main(){try{
     p.pixelX=300;path.update(p,true);check(!p.followerVisible,"Follower interpolated across warp");
     path.seed(p,284,64);path.update(p,true);auto inactive=p;inactive.active=false;path.update(inactive,true);path.translate(-256,16);p.pixelX-=256;p.pixelY+=16;path.update(p,true);check(p.followerVisible&&p.followerX==28&&p.followerY==80,"Connected map transition lost follower history");
     FollowerVisual visual;p.follower=1;p.followerToken=11;visual.update(p,true,0);check(!visual.sprite(0),"Send-out starts with supplied ball");visual.update(p,true,30);check(visual.sprite(30),"Send-out reveals follower");visual.update(p,false,31);check(visual.phase==FollowerVisual::Leaving&&visual.sprite(31),"Recall must animate old sprite");visual.update(p,false,61);check(visual.phase==FollowerVisual::Hidden,"Recall must finish");visual.update(p,true,62);visual.update(p,true,92);p.followerToken=12;visual.update(p,true,93);check(visual.phase==FollowerVisual::Leaving,"Same-species party switch must recall old individual");visual.update(p,true,123);check(visual.phase==FollowerVisual::Arriving&&visual.pose.followerToken==12,"Party switch must send new individual");
-    check(followerBallPattern(false,4)==1&&followerBallPattern(true,1)==5&&followerEmotePattern(1,4)==8&&followerEmotePattern(2,24)==-1,"Original supplied animation sequence");
+    check(followerBallPattern(false,4)==1&&followerBallPattern(true,1)==5&&followerEmotePattern(1,4)==9&&followerEmotePattern(2,24)==-1,"Original supplied animation sequence");
     for(unsigned frame=1;frame<10;++frame){
         const int send=followerBallPattern(false,frame),recall=followerBallPattern(true,frame);
         check(send>=0&&send<=3,"Send-out must use only the four populated top-row cells");
         check(recall>=5&&recall<=7,"Return must use only the three populated bottom-row cells");
     }
     check(followerBallPattern(false,10)==-1&&followerBallPattern(true,10)==-1,"Finished effects must leave no animation cell");
+    check(followerEmoteSheet(4)==2&&followerEmoteSheet(5)==2,"Question and exclamation must use Emote1");
+    for(unsigned frame=0;frame<24;++frame){
+        const auto question=followerEmotePattern(4,frame),surprise=followerEmotePattern(5,frame);
+        check(question>=0&&question<=3,"Question must stay in top cells 1 through 4");
+        check(surprise>=4&&surprise<=9,"Exclamation must start at top cell 5 and stay in its own sequence");
+        if(frame<8)check(question==int(frame/2),"Question frames play in order");
+        if(frame<12)check(surprise==4+int(frame/2),"Exclamation must continue across the row boundary");
+    }
+    check(followerEmotePattern(4,24)==-1&&followerEmotePattern(5,24)==-1,"Emote1 must clear when finished");
+    for(unsigned kind:{1u,2u,3u,6u,7u}){
+        check(followerEmoteSheet(kind)==1&&followerEmoteFrames(kind)==16,"Emote2 must use its own sheet and exactly two loops");
+        const auto a=followerEmotePattern(kind,0),b=followerEmotePattern(kind,4);
+        check(a!=b,"Two-frame emotes must animate distinct cells");
+        for(unsigned frame=0;frame<16;++frame)check(followerEmotePattern(kind,frame)==((frame/4)%2?b:a),"Emote2 must play A B A B");
+        check(followerEmotePattern(kind,16)==-1,"Emote2 must not start a third loop");
+    }
+    check(followerEmotePattern(6,0)==6&&followerEmotePattern(6,4)==7,"Emote2 question uses bottom 2 and 3");
+    check(followerEmotePattern(7,0)==3&&followerEmotePattern(7,4)==4,"Emote2 cheerful face uses top 4 and 5");
+    check(followerEmotePattern(3,0)==0&&followerEmotePattern(3,4)==5,"Music uses top 1 and bottom 1");
+    constexpr int emote3Pairs[5][2]{{0,1},{2,3},{4,9},{5,6},{7,8}};
+    for(unsigned kind=8;kind<=FollowerReactionCount;++kind){
+        check(followerEmoteSheet(kind)==3&&followerEmoteFrames(kind)==16,"Emote3 must play exactly two loops on its own sheet");
+        for(unsigned frame=0;frame<16;++frame)check(followerEmotePattern(kind,frame)==emote3Pairs[kind-8][(frame/4)%2],"Emote3 pair or two-loop ordering is wrong");
+        check(followerEmotePattern(kind,16)==-1,"Emote3 must clear after its second loop");
+    }
+    check(followerEmotePattern(0,0)==-1&&followerEmotePattern(FollowerReactionCount+1,0)==-1,"Unknown emotes must not draw a cell");
     check(followerRow(1)==0&&followerRow(2)==3&&followerRow(3)==1&&followerRow(4)==2,"Sheet direction rows are wrong");
     MotionTimeline timeline;PlayerState a;a.active=true;a.identity=1;a.followerVisible=true;a.followerX=30;a.followerY=50;a.followerFacing=4;a.sequence=1;a.sampleTime=100;
     auto b=a;b.sequence=2;b.sampleTime=120;b.followerY=48;b.followerFacing=2;timeline.push(a,1000);timeline.push(b,1020);

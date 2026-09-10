@@ -3,6 +3,11 @@ installations can use **Update program → Check for updates → Download & rest
 
 - Send-out uses the four populated top-row animation cells; return uses only
   the three populated bottom-row cells. Each frame replaces the previous cell.
+- Follower interactions also include the two distinct question and exclamation
+  animations from Emote1, playing across the row boundary in source order.
+- Each of Emote2's five paired reactions plays exactly two loops (A, B, A, B),
+  then clears. Emote3's five pairs also play exactly twice, including its top-5/bottom-5
+  sequence. All twelve follower reactions synchronize across the room.
 - Shiny Pokemon now use their supplied shiny sprites in grass, as followers,
   around camp and when released. Visible encounters retain their shiny identity.
 - Followers appear without taking a first step and remain consistent across
@@ -17,7 +22,7 @@ installations can use **Update program → Check for updates → Download & rest
   the periodic save calls responsible for hosting pauses. Save before leaving;
   **Exit world** does not start a save.
 
-Everyone in a room must update to **FRMP 21**. Existing saves remain compatible;
+Everyone in a room must update to **FRMP 22**. Existing saves remain compatible;
 rooms still require matching game and ROM revisions.
 
 Windows 10/11 x64. **No ROM included:** supply your own unmodified English

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(PokeMulti VERSION 0.26.6 LANGUAGES C CXX)
+project(PokeMulti VERSION 0.26.7 LANGUAGES C CXX)
 configure_file(src/platform/version.hpp.in generated/platform/version.hpp @ONLY)
 if(NOT WIN32)
   message(FATAL_ERROR "PokeMulti currently requires Windows.")

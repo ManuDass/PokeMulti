@@ -6,6 +6,7 @@
 #include <vector>
 namespace fr::online {class Session;}
 namespace fr::game {
+inline constexpr uint8_t FollowerReactionCount=12;
 struct PlayerState {
     bool active=false;
     uint8_t mapGroup=0,mapNumber=0,elevation=0,facing=1,graphics=0;
@@ -24,7 +25,7 @@ struct PlayerState {
     bool followerShiny=false; // Saved lead Pokemon identity; independent of room odds.
     uint32_t followerToken=0; // Individual identity, including same-species party switches.
     uint16_t followerEmoteSequence=0;
-    uint8_t followerEmote=0; // 0 none, 1 heart, 2 happy, 3 music.
+    uint8_t followerEmote=0; // 0 none, 1 heart, 2 happy, 3 music, 4 curious, 5 surprised, 6 puzzled, 7 cheerful; 8..12 Emote3 expressions.
     uint8_t partyEggs=0; // Bit i is set for an Egg in occupied slot i.
 };
 void initialize(FireRedRevision revision,const std::filesystem::path& diagnostics,const std::filesystem::path& saveFile={});
