@@ -137,10 +137,6 @@ Local two-process checks cover room play, native battles and durable trades.
 Full campaign coverage, FireRed US 1.1/LeafGreen US 1.0 gameplay and
 cross-PC/WAN cable timing need more testing. [Validation notes](docs/VALIDATION.md) describe the evidence and limits.
 
-Original 2D rendering is used throughout. The experimental voxel/paper mode has
-been removed. Supplied fonts, chat tiles, follower sheets, camp frames and UI art
-are preserved in the package.
-
 The runtime dependency is **noncommercial**. Dependency licenses, attribution,
 modified MPL source and TinyCC's corresponding source accompany releases.
 See [third-party notices](docs/THIRD_PARTY.md) and [dependencies](dependencies.json).
